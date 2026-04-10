@@ -1133,14 +1133,14 @@ const styles = StyleSheet.create({
   },
   heroText: {
     fontFamily: Fonts.gameTitle,
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '600',
     color: Colors.dark.background,
     textAlign: 'center',
   },
   heroSubText: {
     fontFamily: Fonts.body,
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '400',
     color: Colors.dark.background,
     textAlign: 'center',

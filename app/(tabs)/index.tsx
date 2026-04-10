@@ -1,5 +1,7 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,7 +17,13 @@ export default function HomeScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const router = useRouter();
-  const { favorites } = useFavorites();
+  const { favorites, reconcileFavoritesWithCustomSheets } = useFavorites();
+
+  useFocusEffect(
+    useCallback(() => {
+      void reconcileFavoritesWithCustomSheets();
+    }, [reconcileFavoritesWithCustomSheets])
+  );
   const { activeGames, clearActiveGame } = useActiveGames();
 
   const handleNewGamePress = () => {
@@ -151,15 +159,15 @@ const styles = StyleSheet.create({
   },
   logoWrapper: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 0,
   },
   logo: {
-    width: 280,
-    height: 96,
+    width: 320,
+    height: 110,
   },
   logoTablet: {
-    width: 460,
-    height: 158,
+    width: 520,
+    height: 179,
   },
   activeSection: {
     gap: 12,

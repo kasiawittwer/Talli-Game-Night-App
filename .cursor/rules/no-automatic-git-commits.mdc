@@ -1,0 +1,10 @@
+---
+description: Do not run git commit or push unless the user explicitly asks in this chat
+alwaysApply: true
+---
+
+# Git: no automatic commits
+
+- **Never** run `git commit`, `git push`, `git merge`, or other commands that change git history or remotes unless the user clearly asks you to do that in their message.
+- It is fine to run read-only git commands when helpful (`git status`, `git diff`, `git log`) if the user is debugging or asks.
+- If the user wants changes saved, make file edits only; they will commit themselves.

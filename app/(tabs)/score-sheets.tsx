@@ -37,7 +37,7 @@ export default function ScoreSheetsScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const router = useRouter();
-  const { favorites } = useFavorites();
+  const { favorites, removeFavoriteById, reconcileFavoritesWithCustomSheets } = useFavorites();
   const { activeGames, clearActiveGame } = useActiveGames();
 
   const handleFavoritePress = (route: string) => {
@@ -47,6 +47,8 @@ export default function ScoreSheetsScreen() {
   const [customSheets, setCustomSheets] = useState<ScoreSheet[]>([]);
 
   const deleteCustomSheet = async (id: string) => {
+    removeFavoriteById(id);
+
     const storageKey = `@sheet:custom:${id}`;
 
     await AsyncStorage.removeItem(storageKey);
@@ -70,6 +72,8 @@ export default function ScoreSheetsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      void reconcileFavoritesWithCustomSheets();
+
       const loadCustomSheets = async () => {
         try {
           const stored = await AsyncStorage.getItem(CUSTOM_SHEETS_KEY);
@@ -96,7 +100,7 @@ export default function ScoreSheetsScreen() {
       };
 
       void loadCustomSheets();
-    }, [])
+    }, [reconcileFavoritesWithCustomSheets])
   );
 
   const gamesToShow = [...PREMADE_SHEETS, ...customSheets];

@@ -1,6 +1,6 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -24,7 +24,6 @@ const LABELS: Record<string, string> = {
 };
 
 export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const router = useRouter();
   const { lastScoreSheetHref } = useLastScoreSheet();
   const { width: windowWidth } = useWindowDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;

@@ -67,16 +67,27 @@ export function useLastScoreSheet() {
   return ctx;
 }
 
-/**
- * Keeps `lastScoreSheetHref` in sync: set when viewing a sheet, cleared on the Score Sheets grid.
- */
 /** Matches ScoreSheetBottomNav: avoids jarring transitions when jumping back to a sheet. */
 export function withNoAnimationHref(href: string): string {
   const sep = href.includes('?') ? '&' : '?';
   return `${href}${sep}__internal_expo_router_no_animation=true`;
 }
 
-export function LastScoreSheetPathSync() {
+/**
+ * Pathname hooks must not run on the first root paint — they can run before the
+ * navigation state is hydrated and trigger TabRouter `getRehydratedState(undefined)` →
+ * `Cannot read property 'stale' of undefined`. Mount the inner sync after mount.
+ */
+function LastScoreSheetPathSyncDeferred() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted) return null;
+  return <LastScoreSheetPathSyncInner />;
+}
+
+function LastScoreSheetPathSyncInner() {
   const pathname = usePathname();
   const params = useGlobalSearchParams();
   const { setLastScoreSheetHref } = useLastScoreSheet();
@@ -94,4 +105,8 @@ export function LastScoreSheetPathSync() {
   }, [pathname, paramsKey, params, setLastScoreSheetHref]);
 
   return null;
+}
+
+export function LastScoreSheetPathSync() {
+  return <LastScoreSheetPathSyncDeferred />;
 }

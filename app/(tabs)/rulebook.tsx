@@ -2310,12 +2310,12 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontFamily: Fonts.gameTitle,
-    fontSize: 32,
+    fontSize: 24,
     color: Colors.dark.background,
     fontWeight: '600',
   },
   emptySubText: {
-    fontSize: 18,
+    fontSize: 12,
     color: Colors.dark.background,
     fontWeight: '400',
     marginTop: 6,
