@@ -12,6 +12,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardTextInput as TextInput } from '@/components/keyboard-text-input';
 import { ThemedView } from '@/components/themed-view';
 import { keyboardVerticalOffsetBelowSiblingHeader } from '@/constants/keyboard';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors, Fonts, TABLET_MIN_WIDTH } from '@/constants/theme';
 import { getGameAssistantConfig, hasCloudLlm, openaiChatCompletions } from '@/lib/game-assistant-llm';
 
 type Message = {
@@ -333,6 +334,8 @@ const userAskedForRuleSource = (question: string): boolean => {
 
 export default function RulebookScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const [activeTab, setActiveTab] = useState<Tab>('rulebook');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -1874,17 +1877,19 @@ export default function RulebookScreen() {
     <ThemedView style={[styles.screen, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable
-          style={styles.menuButton}
-          onPress={() => setMenuOpen(!menuOpen)}
-        >
-          <Image
-            source={require('@/assets/icons/menu.svg')}
-            style={styles.menuIcon}
-            tintColor={Colors.light.surface}
-            contentFit="contain"
-          />
-        </Pressable>
+        {activeTab === 'rulebook' ? (
+          <Pressable
+            style={styles.menuButton}
+            onPress={() => setMenuOpen(!menuOpen)}
+          >
+            <Image
+              source={require('@/assets/icons/menu.svg')}
+              style={styles.menuIcon}
+              tintColor={Colors.light.surface}
+              contentFit="contain"
+            />
+          </Pressable>
+        ) : null}
 
         <View style={styles.tabToggle}>
           <Pressable
@@ -1916,8 +1921,8 @@ export default function RulebookScreen() {
         </View>
       </View>
 
-      {/* Side Menu */}
-      {menuOpen && (
+      {/* Side Menu (rule chat only) */}
+      {activeTab === 'rulebook' && menuOpen && (
         <>
           <Pressable
             style={styles.menuBackdrop}
@@ -1952,98 +1957,107 @@ export default function RulebookScreen() {
           behavior={Platform.OS === 'web' ? undefined : 'padding'}
           keyboardVerticalOffset={keyboardVerticalOffsetBelowSiblingHeader()}
         >
-          {messages.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>Ask away, let&apos;s play!</Text>
-              <Text style={styles.emptySubText}>Got a question about how something works?</Text>
-              <Text style={styles.emptySubText}>Type it here and I&apos;ll give you the answer you need!</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={messages}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.messageList}
-              keyboardShouldPersistTaps="always"
-              keyboardDismissMode="interactive"
-              renderItem={({ item }) => (
-                <View
-                  style={[
-                    styles.messageBubble,
-                    item.isUser ? styles.userBubble : styles.aiBubble,
-                  ]}
-                >
-                  {item.imageUri && (
-                    <Image
-                      source={{ uri: item.imageUri }}
-                      style={styles.messageImage}
-                      contentFit="cover"
-                    />
-                  )}
-                  {item.text ? (
-                    <Text
-                      style={[
-                        styles.messageText,
-                        item.isUser ? styles.userText : styles.aiText,
-                      ]}
-                    >
-                      {item.text}
-                    </Text>
-                  ) : null}
-                </View>
-              )}
-            />
-          )}
-
-          {/* Input Area */}
-          <View style={[styles.inputContainer, { paddingBottom: Math.max(0, insets.bottom - 6) }]}>
-            <TextInput
-              style={[styles.textInput, { minHeight: promptInputHeight }]}
-              placeholder="Write here"
-              placeholderTextColor="#999"
-              value={inputText}
-              onChangeText={(t) => {
-                setInputText(t);
-
-                // contentSize sometimes doesn't shrink right away.
-                // Estimate height from newlines.
-                const trimmedEnd = t.replace(/\n+$/g, '');
-                const lineCount = trimmedEnd.length === 0 ? 1 : trimmedEnd.split('\n').length;
-                const estimated =
-                  PROMPT_INPUT_MIN_HEIGHT + (lineCount - 1) * PROMPT_INPUT_LINE_HEIGHT_EST;
-                const clamped = Math.max(
-                  PROMPT_INPUT_MIN_HEIGHT,
-                  Math.min(PROMPT_INPUT_MAX_HEIGHT, estimated)
-                );
-                setPromptInputHeight((prev) => (clamped < prev ? clamped : prev));
-              }}
-              multiline
-              textAlignVertical="top"
-              scrollEnabled={promptInputHeight >= PROMPT_INPUT_MAX_HEIGHT}
-              onContentSizeChange={(e) => {
-                const h = e.nativeEvent.contentSize.height;
-                const clamped = Math.max(
-                  PROMPT_INPUT_MIN_HEIGHT,
-                  Math.min(PROMPT_INPUT_MAX_HEIGHT, h)
-                );
-                setPromptInputHeight(clamped);
-              }}
-              returnKeyType="send"
-              onSubmitEditing={handleSend}
-              blurOnSubmit
-            />
-
-            <Pressable style={styles.sendButton} onPress={() => void handleSend()}>
-              <Image
-                source={require('@/assets/icons/send-arrow.svg')}
-                style={styles.sendIcon}
-                contentFit="contain"
+          <View
+            style={[styles.rulesContentColumn, isTablet && styles.rulesContentColumnTablet]}>
+            {messages.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>Ask away, let&apos;s play!</Text>
+                <Text style={styles.emptySubText}>Got a question about how something works?</Text>
+                <Text style={styles.emptySubText}>Type it here and I&apos;ll give you the answer you need!</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={messages}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.messageList}
+                keyboardShouldPersistTaps="always"
+                keyboardDismissMode="interactive"
+                style={styles.messageListFlex}
+                renderItem={({ item }) => (
+                  <View
+                    style={[
+                      styles.messageBubble,
+                      item.isUser ? styles.userBubble : styles.aiBubble,
+                    ]}
+                  >
+                    {item.imageUri && (
+                      <Image
+                        source={{ uri: item.imageUri }}
+                        style={styles.messageImage}
+                        contentFit="cover"
+                      />
+                    )}
+                    {item.text ? (
+                      <Text
+                        style={[
+                          styles.messageText,
+                          item.isUser ? styles.userText : styles.aiText,
+                        ]}
+                      >
+                        {item.text}
+                      </Text>
+                    ) : null}
+                  </View>
+                )}
               />
-            </Pressable>
+            )}
+
+            {/* Input Area */}
+            <View style={[styles.inputContainer, { paddingBottom: Math.max(0, insets.bottom - 6) }]}>
+              <TextInput
+                style={[styles.textInput, { minHeight: promptInputHeight }]}
+                placeholder="Write here"
+                placeholderTextColor="#999"
+                value={inputText}
+                onChangeText={(t) => {
+                  setInputText(t);
+
+                  // contentSize sometimes doesn't shrink right away.
+                  // Estimate height from newlines.
+                  const trimmedEnd = t.replace(/\n+$/g, '');
+                  const lineCount = trimmedEnd.length === 0 ? 1 : trimmedEnd.split('\n').length;
+                  const estimated =
+                    PROMPT_INPUT_MIN_HEIGHT + (lineCount - 1) * PROMPT_INPUT_LINE_HEIGHT_EST;
+                  const clamped = Math.max(
+                    PROMPT_INPUT_MIN_HEIGHT,
+                    Math.min(PROMPT_INPUT_MAX_HEIGHT, estimated)
+                  );
+                  setPromptInputHeight((prev) => (clamped < prev ? clamped : prev));
+                }}
+                multiline
+                textAlignVertical="top"
+                scrollEnabled={promptInputHeight >= PROMPT_INPUT_MAX_HEIGHT}
+                onContentSizeChange={(e) => {
+                  const h = e.nativeEvent.contentSize.height;
+                  const clamped = Math.max(
+                    PROMPT_INPUT_MIN_HEIGHT,
+                    Math.min(PROMPT_INPUT_MAX_HEIGHT, h)
+                  );
+                  setPromptInputHeight(clamped);
+                }}
+                returnKeyType="send"
+                onSubmitEditing={handleSend}
+                blurOnSubmit
+              />
+
+              <Pressable style={styles.sendButton} onPress={() => void handleSend()}>
+                <Image
+                  source={require('@/assets/icons/send-arrow.svg')}
+                  style={styles.sendIcon}
+                  contentFit="contain"
+                />
+              </Pressable>
+            </View>
           </View>
         </KeyboardAvoidingView>
       ) : (
         /* House Rules Area */
-        <View style={styles.houseRulesContainer}>
+        <View
+          style={[
+            styles.houseRulesContainer,
+            styles.rulesContentColumn,
+            isTablet && styles.rulesContentColumnTablet,
+          ]}>
           <FlatList
             data={houseRules}
             keyExtractor={(item) => item.id}
@@ -2077,86 +2091,90 @@ export default function RulebookScreen() {
               </Pressable>
             }
           />
+        </View>
+      )}
 
-          {/* Add Rule Modal */}
-          {showAddRuleModal && (
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalTitleRow}>
-                  <TextInput
-                    style={styles.gameNameInput}
-                    placeholder="Game Name"
-                    placeholderTextColor={Colors.dark.background}
-                    value={newGameName}
-                    onChangeText={setNewGameName}
+      {/* Add / edit house rule — full-bleed green sheet (above tab bar); fields stay inset */}
+      {showAddRuleModal && (
+        <View
+          style={[
+            styles.modalOverlay,
+            { top: insets.top + 80 },
+          ]}>
+          <View style={[styles.modalContent, isTablet && styles.modalContentTablet]}>
+            <View style={styles.modalTitleRow}>
+              <TextInput
+                style={styles.gameNameInput}
+                placeholder="Game Name"
+                placeholderTextColor={Colors.dark.background}
+                value={newGameName}
+                onChangeText={setNewGameName}
+              />
+              {editingRuleId ? (
+                <Pressable
+                  style={styles.modalTitleDeleteButton}
+                  onPress={confirmDeleteHouseRule}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete house rules"
+                >
+                  <Image
+                    source={require('@/assets/trash-03.svg')}
+                    style={styles.modalTitleTrashIcon}
+                    contentFit="contain"
+                    tintColor={Colors.dark.background}
                   />
-                  {editingRuleId ? (
-                    <Pressable
-                      style={styles.modalTitleDeleteButton}
-                      onPress={confirmDeleteHouseRule}
-                      accessibilityRole="button"
-                      accessibilityLabel="Delete house rules"
-                    >
-                      <Image
-                        source={require('@/assets/trash-03.svg')}
-                        style={styles.modalTitleTrashIcon}
-                        contentFit="contain"
-                        tintColor={Colors.dark.background}
-                      />
-                    </Pressable>
-                  ) : null}
-                </View>
-
-                <View style={styles.ruleInputContainer}>
-                  <FlatList
-                    data={newRules}
-                    keyExtractor={(_, index) => index.toString()}
-                    renderItem={({ item, index }) => (
-                      <View style={styles.ruleRow}>
-                        <Text style={styles.ruleNumber}>{index + 1}.</Text>
-                        <TextInput
-                          ref={(ref) => {
-                            ruleInputRefs.current[index] = ref;
-                          }}
-                          style={styles.ruleTextInput}
-                          placeholder=""
-                          placeholderTextColor="#999"
-                          value={item}
-                          onChangeText={(text) => updateRule(index, text)}
-                          onSubmitEditing={() => handleRuleSubmit(index)}
-                          onKeyPress={({ nativeEvent }) =>
-                            handleRuleKeyPress(index, nativeEvent.key)
-                          }
-                          blurOnSubmit={false}
-                          returnKeyType="next"
-                          multiline
-                          textAlignVertical="top"
-                          {...(Platform.OS === 'android' ? { includeFontPadding: false } : {})}
-                        />
-                      </View>
-                    )}
-                  />
-                </View>
-
-                <View style={styles.modalButtons}>
-                  <Pressable
-                    style={styles.modalCancelButton}
-                    onPress={() => {
-                      setShowAddRuleModal(false);
-                      setEditingRuleId(null);
-                      setNewGameName('');
-                      setNewRules(['']);
-                    }}
-                  >
-                    <Text style={styles.modalCancelText}>Cancel</Text>
-                  </Pressable>
-                  <Pressable style={styles.modalSaveButton} onPress={saveHouseRule}>
-                    <Text style={styles.modalSaveText}>Save</Text>
-                  </Pressable>
-                </View>
-              </View>
+                </Pressable>
+              ) : null}
             </View>
-          )}
+
+            <View style={styles.ruleInputContainer}>
+              <FlatList
+                data={newRules}
+                keyExtractor={(_, index) => index.toString()}
+                renderItem={({ item, index }) => (
+                  <View style={styles.ruleRow}>
+                    <Text style={styles.ruleNumber}>{index + 1}.</Text>
+                    <TextInput
+                      ref={(ref) => {
+                        ruleInputRefs.current[index] = ref;
+                      }}
+                      style={styles.ruleTextInput}
+                      placeholder=""
+                      placeholderTextColor="#999"
+                      value={item}
+                      onChangeText={(text) => updateRule(index, text)}
+                      onSubmitEditing={() => handleRuleSubmit(index)}
+                      onKeyPress={({ nativeEvent }) =>
+                        handleRuleKeyPress(index, nativeEvent.key)
+                      }
+                      blurOnSubmit={false}
+                      returnKeyType="next"
+                      multiline
+                      textAlignVertical="top"
+                      {...(Platform.OS === 'android' ? { includeFontPadding: false } : {})}
+                    />
+                  </View>
+                )}
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowAddRuleModal(false);
+                  setEditingRuleId(null);
+                  setNewGameName('');
+                  setNewRules(['']);
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={styles.modalSaveButton} onPress={saveHouseRule}>
+                <Text style={styles.modalSaveText}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
       )}
     </ThemedView>
@@ -2176,7 +2194,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 22,
+    paddingBottom: 12,
     position: 'relative',
   },
   menuButton: {
@@ -2225,7 +2244,7 @@ const styles = StyleSheet.create({
   },
   sideMenu: {
     position: 'absolute',
-    top: 100,
+    top: 112,
     left: 16,
     width: 250,
     backgroundColor: '#FFFFFF',
@@ -2271,6 +2290,19 @@ const styles = StyleSheet.create({
   chatContainer: {
     flex: 1,
   },
+  rulesContentColumn: {
+    flex: 1,
+    width: '100%',
+    paddingHorizontal: 24,
+  },
+  rulesContentColumnTablet: {
+    paddingHorizontal: 96,
+    maxWidth: 900,
+    alignSelf: 'center',
+  },
+  messageListFlex: {
+    flex: 1,
+  },
   emptyState: {
     flex: 1,
     alignItems: 'center',
@@ -2278,20 +2310,22 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontFamily: Fonts.gameTitle,
-    fontSize: 22,
+    fontSize: 32,
     color: Colors.dark.background,
     fontWeight: '600',
   },
   emptySubText: {
-    fontSize: 14,
+    fontSize: 18,
     color: Colors.dark.background,
     fontWeight: '400',
     marginTop: 6,
     textAlign: 'center',
   },
   messageList: {
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
     gap: 12,
+    flexGrow: 1,
   },
   messageBubble: {
     maxWidth: '80%',
@@ -2349,7 +2383,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     paddingTop: 6,
     paddingBottom: 0,
     gap: 12,
@@ -2391,7 +2425,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   houseRulesList: {
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 0,
     gap: 16,
   },
   houseRuleCard: {
@@ -2443,16 +2478,27 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 1000,
+    elevation: 1000,
     backgroundColor: Colors.light.accent,
-    padding: 24,
-    paddingTop: 60,
+    borderTopLeftRadius: 80,
+    borderTopRightRadius: 80,
+    overflow: 'hidden',
   },
   modalContent: {
     flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 36,
+  },
+  modalContentTablet: {
+    paddingHorizontal: 96,
+    maxWidth: 900,
+    alignSelf: 'center',
+    width: '100%',
   },
   modalTitleRow: {
     flexDirection: 'row',

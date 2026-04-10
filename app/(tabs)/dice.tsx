@@ -9,18 +9,28 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors, Fonts, TABLET_MIN_WIDTH } from '@/constants/theme';
 
 type DicePage = 0 | 1 | 2;
 
 export default function DiceScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const isTablet = windowWidth >= TABLET_MIN_WIDTH;
+  const dieSize = isTablet ? 300 : 200;
+  const pipGridSize = Math.round((dieSize * 120) / 180);
+  const pipDotSize = Math.round((dieSize * 18) / 180);
+  const dieBorderRadius = Math.round((dieSize * 24) / 180);
+  const alphaDieSize = isTablet ? 320 : 220;
+  const alphaLetterSize = isTablet ? 100 : 72;
+
   const scrollRef = useRef<ScrollView | null>(null);
   const [pageIndex, setPageIndex] = useState<DicePage>(0);
   const [pageWidth, setPageWidth] = useState(() => Dimensions.get('window').width);
@@ -189,110 +199,140 @@ export default function DiceScreen() {
     }
   };
 
+  const dieSquareStyle = {
+    width: dieSize,
+    height: dieSize,
+    borderRadius: dieBorderRadius,
+  };
+
   return (
-    <ThemedView style={[styles.screen, { paddingTop: insets.top }]}>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onLayout={onScrollViewLayout}
-        onMomentumScrollEnd={handleScrollEnd}
-        style={styles.scrollView}>
-        {/* Dice 1: single six-sided die (blue) */}
-        <View style={[styles.page, { width: pageWidth }]}>
-          <Pressable onPress={roll} hitSlop={12}>
-            <Animated.View style={rollAnimStyle}>
-              <View style={[styles.dieSquare, { backgroundColor: Colors.light.secondary }]}>
-                <Pips value={singleDie} />
+    <ThemedView style={[styles.screen, isTablet && styles.screenTablet, { paddingTop: insets.top }]}>
+      <View style={[styles.contentColumn, isTablet && styles.contentColumnTablet]}>
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onLayout={onScrollViewLayout}
+          onMomentumScrollEnd={handleScrollEnd}
+          style={styles.scrollView}>
+          {/* Dice 1: single six-sided die (blue) */}
+          <View style={[styles.page, { width: pageWidth }]}>
+            <Pressable onPress={roll} hitSlop={12}>
+              <Animated.View style={rollAnimStyle}>
+                <View style={[styles.dieSquare, dieSquareStyle, { backgroundColor: Colors.light.secondary }]}>
+                  <Pips value={singleDie} pipGridSize={pipGridSize} pipDotSize={pipDotSize} />
+                </View>
+              </Animated.View>
+            </Pressable>
+          </View>
+
+          {/* Dice 2: two six-sided dice (yellow + blue) — each die animates on its own pivot */}
+          <View style={[styles.page, { width: pageWidth }]}>
+            <Pressable onPress={roll} hitSlop={12}>
+              <View style={[styles.twoDiceColumn, isTablet && styles.twoDiceColumnTablet]}>
+                <Animated.View style={pairAnimStyle0}>
+                  <View style={[styles.dieSquare, dieSquareStyle, { backgroundColor: Colors.light.accent }]}>
+                    <Pips value={pairDice[0]} pipGridSize={pipGridSize} pipDotSize={pipDotSize} />
+                  </View>
+                </Animated.View>
+                <Animated.View style={pairAnimStyle1}>
+                  <View style={[styles.dieSquare, dieSquareStyle, { backgroundColor: Colors.light.secondary }]}>
+                    <Pips value={pairDice[1]} pipGridSize={pipGridSize} pipDotSize={pipDotSize} />
+                  </View>
+                </Animated.View>
               </View>
-            </Animated.View>
-          </Pressable>
-        </View>
+            </Pressable>
+          </View>
 
-        {/* Dice 2: two six-sided dice (yellow + blue) — each die animates on its own pivot */}
-        <View style={[styles.page, { width: pageWidth }]}>
-          <Pressable onPress={roll} hitSlop={12}>
-            <View style={styles.twoDiceColumn}>
-              <Animated.View style={pairAnimStyle0}>
-                <View style={[styles.dieSquare, { backgroundColor: Colors.light.accent }]}>
-                  <Pips value={pairDice[0]} />
-                </View>
-              </Animated.View>
-              <Animated.View style={pairAnimStyle1}>
-                <View style={[styles.dieSquare, { backgroundColor: Colors.light.secondary }]}>
-                  <Pips value={pairDice[1]} />
-                </View>
-              </Animated.View>
-            </View>
-          </Pressable>
-        </View>
+          {/* Dice 3: alphabet die */}
+          <View style={[styles.page, { width: pageWidth }]}>
+            <Pressable onPress={roll} hitSlop={12}>
+              <View style={styles.alphaWrapper}>
+                <Animated.View
+                  style={[
+                    styles.alphaDie,
+                    { width: alphaDieSize, height: alphaDieSize },
+                    rollAnimStyle,
+                  ]}>
+                  <Image
+                    source={require('@/assets/Polygon 1.svg')}
+                    style={styles.alphaImage}
+                    contentFit="contain"
+                  />
+                  <Text style={[styles.alphaLetter, { fontSize: alphaLetterSize }]}>{alphaDie}</Text>
+                </Animated.View>
+              </View>
+            </Pressable>
+          </View>
+        </ScrollView>
 
-        {/* Dice 3: alphabet die */}
-        <View style={[styles.page, { width: pageWidth }]}>
-          <Pressable onPress={roll} hitSlop={12}>
-            <View style={styles.alphaWrapper}>
-              <Animated.View style={[styles.alphaDie, rollAnimStyle]}>
-                <Image
-                  source={require('@/assets/Polygon 1.svg')}
-                  style={styles.alphaImage}
-                  contentFit="contain"
-                />
-                <Text style={styles.alphaLetter}>{alphaDie}</Text>
-              </Animated.View>
-            </View>
-          </Pressable>
-        </View>
-      </ScrollView>
+        <View style={[styles.bottomSection, isTablet && styles.bottomSectionTablet]}>
+          <View style={[styles.dotsRow, isTablet && styles.dotsRowTablet]}>
+            <View
+              style={[
+                styles.dot,
+                { backgroundColor: pageIndex === 0 ? Colors.light.primary : '#D0D0D0' },
+              ]}
+            />
+            <View
+              style={[
+                styles.dot,
+                { backgroundColor: pageIndex === 1 ? Colors.light.primary : '#D0D0D0' },
+              ]}
+            />
+            <View
+              style={[
+                styles.dot,
+                { backgroundColor: pageIndex === 2 ? Colors.light.primary : '#D0D0D0' },
+              ]}
+            />
+          </View>
 
-      <View style={styles.bottomSection}>
-        {/* Pagination dots */}
-        <View style={styles.dotsRow}>
-          <View
-            style={[
-              styles.dot,
-              { backgroundColor: pageIndex === 0 ? Colors.light.primary : '#D0D0D0' },
-            ]}
-          />
-          <View
-            style={[
-              styles.dot,
-              { backgroundColor: pageIndex === 1 ? Colors.light.primary : '#D0D0D0' },
-            ]}
-          />
-          <View
-            style={[
-              styles.dot,
-              { backgroundColor: pageIndex === 2 ? Colors.light.primary : '#D0D0D0' },
-            ]}
-          />
-        </View>
-
-        {/* Roll button */}
-        <View style={styles.rollRow}>
-          <Pressable style={styles.rollButton} onPress={roll}>
-            <ThemedText style={styles.rollText}>Roll</ThemedText>
-          </Pressable>
+          <View style={styles.rollRow}>
+            <Pressable style={styles.rollButton} onPress={roll}>
+              <ThemedText style={styles.rollText}>Roll</ThemedText>
+            </Pressable>
+          </View>
         </View>
       </View>
     </ThemedView>
   );
 }
 
-function Pips({ value }: { value: number }) {
-  // 3x3 grid of pips for a standard D6
+function Pips({
+  value,
+  pipGridSize,
+  pipDotSize,
+}: {
+  value: number;
+  pipGridSize: number;
+  pipDotSize: number;
+}) {
   const layout: boolean[][] = [
     [value >= 4, value === 6, value >= 2],
     [false, value % 2 === 1, false],
     [value >= 2, value === 6, value >= 4],
   ];
+  const pipRadius = pipDotSize / 2;
 
   return (
-    <View style={styles.pipGrid}>
+    <View style={[styles.pipGrid, { width: pipGridSize, height: pipGridSize }]}>
       {layout.map((row, rowIndex) => (
         <View key={rowIndex} style={styles.pipRow}>
           {row.map((on, colIndex) => (
-            <View key={colIndex} style={[styles.pipDot, !on && { opacity: 0 }]} />
+            <View
+              key={colIndex}
+              style={[
+                styles.pipDot,
+                {
+                  width: pipDotSize,
+                  height: pipDotSize,
+                  borderRadius: pipRadius,
+                  opacity: on ? 1 : 0,
+                },
+              ]}
+            />
           ))}
         </View>
       ))}
@@ -305,11 +345,26 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingBottom: 24,
   },
+  screenTablet: {
+    paddingHorizontal: 96,
+    paddingBottom: 72,
+  },
+  contentColumn: {
+    flex: 1,
+    width: '100%',
+  },
+  contentColumnTablet: {
+    maxWidth: 900,
+    alignSelf: 'center',
+  },
   scrollView: {
     flex: 1,
   },
   bottomSection: {
     paddingHorizontal: 24,
+  },
+  bottomSectionTablet: {
+    paddingHorizontal: 0,
   },
   page: {
     flex: 1,
@@ -317,15 +372,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dieSquare: {
-    width: 180,
-    height: 180,
-    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pipGrid: {
-    width: 120,
-    height: 120,
     flexDirection: 'column',
     justifyContent: 'space-between',
   },
@@ -334,22 +384,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   pipDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
     backgroundColor: '#FFFFFF',
   },
   twoDiceColumn: {
     gap: 24,
     alignItems: 'center',
   },
+  twoDiceColumnTablet: {
+    gap: 36,
+  },
   alphaWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   alphaDie: {
-    width: 200,
-    height: 200,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -359,7 +407,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   alphaLetter: {
-    fontSize: 64,
     color: '#FFFFFF',
     fontFamily: Fonts.gameTitle, // Aquavit Talli for the letter faces
   },
@@ -370,6 +417,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 16,
     marginBottom: 48,
+  },
+  dotsRowTablet: {
+    marginTop: 20,
+    marginBottom: 28,
   },
   dot: {
     width: 8,

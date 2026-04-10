@@ -1,9 +1,11 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { Colors, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { useLastScoreSheet, withNoAnimationHref } from '@/context/last-score-sheet-context';
 
 const ICONS: Record<string, any> = {
   rulebook: require('@/assets/icons/rulebook-open.svg'),
@@ -22,6 +24,10 @@ const LABELS: Record<string, string> = {
 };
 
 export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const router = useRouter();
+  const { lastScoreSheetHref } = useLastScoreSheet();
+  const { width: windowWidth } = useWindowDimensions();
+  const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const rawActiveRouteName = state.routes[state.index]?.name;
   const scoreSheetRoutes = [
     'mexican-train',
@@ -46,8 +52,8 @@ export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarPro
     .filter(Boolean) as typeof state.routes;
 
   return (
-    <View style={styles.wrapper}>
-      <View style={styles.container}>
+    <View style={[styles.wrapper, isTablet && styles.wrapperTablet]}>
+      <View style={[styles.container, isTablet && styles.containerTablet]}>
         {visibleRoutes.map((route) => {
           const isFocused = route.name === activeRouteName;
           const onPress = () => {
@@ -59,14 +65,23 @@ export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarPro
 
             if (event.defaultPrevented) return;
 
-            // On an individual score sheet: tapping Scoring goes to the main Score Sheets overview
+            // On an individual score sheet (stack screen): Scoring opens the grid to pick another game.
             if (route.name === 'score-sheets' && isOnScoreSheet) {
               navigation.navigate('score-sheets' as any);
               return;
             }
 
+            // From Home / Rules / Timers / Dice: return to the last open score sheet if any.
+            if (route.name === 'score-sheets' && !isFocused) {
+              if (lastScoreSheetHref) {
+                router.push(withNoAnimationHref(lastScoreSheetHref) as any);
+              } else {
+                navigation.navigate('score-sheets' as any);
+              }
+              return;
+            }
+
             if (!isFocused) {
-              // Scoring always opens the main grid of game cards (not a previously opened sheet).
               navigation.navigate(route.name);
             }
           };
@@ -81,9 +96,13 @@ export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarPro
               key={route.key}
               accessibilityRole="button"
               accessibilityState={isFocused ? { selected: true } : {}}
-              style={({ pressed }) => [styles.tab, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [
+                styles.tab,
+                isTablet && styles.tabTablet,
+                pressed && { opacity: 0.7 },
+              ]}
               onPress={onPress}>
-              <View style={styles.iconLabelBubble}>
+              <View style={[styles.iconLabelBubble, isTablet && styles.iconLabelBubbleTablet]}>
                 {iconSource && (
                   <Image
                     source={iconSource}
@@ -110,8 +129,11 @@ const styles = StyleSheet.create({
   wrapper: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-    paddingTop: 8,
+    paddingTop: 16,
     backgroundColor: 'transparent',
+  },
+  wrapperTablet: {
+    paddingHorizontal: 80,
   },
   container: {
     flexDirection: 'row',
@@ -122,10 +144,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
+  containerTablet: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    alignSelf: 'center',
+    maxWidth: 600,
+    width: '100%',
+  },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  tabTablet: {
+    flex: 1,
+    minWidth: 48,
   },
   iconLabelBubble: {
     flexDirection: 'column',
@@ -134,6 +168,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 12,
     borderRadius: 999,
+  },
+  iconLabelBubbleTablet: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   icon: {
     width: 24,

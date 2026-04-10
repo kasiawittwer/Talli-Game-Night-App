@@ -9,17 +9,23 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { KeyboardTextInput as TextInput } from '@/components/keyboard-text-input';
 import { iosKeyboardOffsetWithSafeTop } from '@/constants/keyboard';
-import { SCORE_SHEET_SCROLL_CONTENT } from '@/constants/score-sheet-layout';
-import { Colors, Fonts } from '@/constants/theme';
+import {
+  SCORE_SHEET_PAGE_COLUMN,
+  SCORE_SHEET_PAGE_COLUMN_TABLET,
+  SCORE_SHEET_SCROLL_CONTENT,
+} from '@/constants/score-sheet-layout';
+import { Colors, Fonts, TABLET_MIN_WIDTH } from '@/constants/theme';
 import { useFavorites } from '@/context/favorites-context';
 import { useActiveGames } from '@/context/active-games-context';
 import { ScoreSheetBottomNav } from '@/components/ui/score-sheet-bottom-nav';
+import { scoreSheetCalculatorStyles } from '@/constants/score-sheet-calculator-styles';
 
 const SHEET_INFO = {
   id: 'hand-and-foot',
@@ -47,6 +53,8 @@ function parseNum(s: string) {
 
 export default function HandAndFootScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const router = useRouter();
   const { isFavorite, toggleFavorite } = useFavorites();
   const isSheetFavorite = isFavorite(SHEET_INFO.id);
@@ -331,6 +339,7 @@ export default function HandAndFootScreen() {
         </View>
       </View>
 
+      <View style={[SCORE_SHEET_PAGE_COLUMN, isTablet && SCORE_SHEET_PAGE_COLUMN_TABLET]}>
       <Text style={styles.title}>{SHEET_INFO.name}</Text>
 
       <ScrollView
@@ -511,106 +520,107 @@ export default function HandAndFootScreen() {
           </Pressable>
         </View>
       </ScrollView>
+      </View>
       </KeyboardAvoidingView>
 
       <ScoreSheetBottomNav />
 
       {/* Calculator Modal */}
       {showCalculator && (
-        <View style={styles.calcOverlay}>
-          <View style={styles.calcContainer}>
-            <View style={styles.calcHeader}>
-              <Text style={styles.calcTitle}>Calculator</Text>
+        <View style={scoreSheetCalculatorStyles.calcOverlay}>
+          <View style={scoreSheetCalculatorStyles.calcContainer}>
+            <View style={scoreSheetCalculatorStyles.calcHeader}>
+              <Text style={scoreSheetCalculatorStyles.calcTitle}>Calculator</Text>
               <Pressable onPress={() => setShowCalculator(false)}>
-                <Text style={styles.calcClose}>✕</Text>
+                <Text style={scoreSheetCalculatorStyles.calcClose}>✕</Text>
               </Pressable>
             </View>
 
-            <View style={styles.calcDisplay}>
-              <Text style={styles.calcExpressionText} numberOfLines={1}>
+            <View style={scoreSheetCalculatorStyles.calcDisplay}>
+              <Text style={scoreSheetCalculatorStyles.calcExpressionText} numberOfLines={1}>
                 {calcPrevValue !== null && calcOperator
                   ? `${calcPrevValue} ${calcOperator} ${
                       calcWaitingForOperand ? '' : calcDisplay
                     }`
                   : ''}
               </Text>
-              <Text style={styles.calcDisplayText} numberOfLines={1} adjustsFontSizeToFit>
+              <Text style={scoreSheetCalculatorStyles.calcDisplayText} numberOfLines={1} adjustsFontSizeToFit>
                 {calcDisplay}
               </Text>
             </View>
 
-            <View style={styles.calcButtons}>
-              <View style={styles.calcRow}>
-                <Pressable style={styles.calcBtnGray} onPress={calcClear}>
-                  <Text style={styles.calcBtnText}>C</Text>
+            <View style={scoreSheetCalculatorStyles.calcButtons}>
+              <View style={scoreSheetCalculatorStyles.calcRow}>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtnGray} onPress={calcClear}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>C</Text>
                 </Pressable>
-                <Pressable style={styles.calcBtnGray} onPress={calcToggleSign}>
-                  <Text style={styles.calcBtnText}>±</Text>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtnGray} onPress={calcToggleSign}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>±</Text>
                 </Pressable>
-                <Pressable style={styles.calcBtnGray} onPress={calcPercent}>
-                  <Text style={styles.calcBtnText}>%</Text>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtnGray} onPress={calcPercent}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>%</Text>
                 </Pressable>
-                <Pressable style={styles.calcBtnOrange} onPress={() => calcInputOperator('÷')}>
-                  <Text style={styles.calcBtnTextWhite}>÷</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.calcRow}>
-                <Pressable style={styles.calcBtn} onPress={() => calcInputDigit('7')}>
-                  <Text style={styles.calcBtnText}>7</Text>
-                </Pressable>
-                <Pressable style={styles.calcBtn} onPress={() => calcInputDigit('8')}>
-                  <Text style={styles.calcBtnText}>8</Text>
-                </Pressable>
-                <Pressable style={styles.calcBtn} onPress={() => calcInputDigit('9')}>
-                  <Text style={styles.calcBtnText}>9</Text>
-                </Pressable>
-                <Pressable style={styles.calcBtnOrange} onPress={() => calcInputOperator('×')}>
-                  <Text style={styles.calcBtnTextWhite}>×</Text>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtnOrange} onPress={() => calcInputOperator('÷')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnTextWhite}>÷</Text>
                 </Pressable>
               </View>
 
-              <View style={styles.calcRow}>
-                <Pressable style={styles.calcBtn} onPress={() => calcInputDigit('4')}>
-                  <Text style={styles.calcBtnText}>4</Text>
+              <View style={scoreSheetCalculatorStyles.calcRow}>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtn} onPress={() => calcInputDigit('7')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>7</Text>
                 </Pressable>
-                <Pressable style={styles.calcBtn} onPress={() => calcInputDigit('5')}>
-                  <Text style={styles.calcBtnText}>5</Text>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtn} onPress={() => calcInputDigit('8')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>8</Text>
                 </Pressable>
-                <Pressable style={styles.calcBtn} onPress={() => calcInputDigit('6')}>
-                  <Text style={styles.calcBtnText}>6</Text>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtn} onPress={() => calcInputDigit('9')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>9</Text>
                 </Pressable>
-                <Pressable style={styles.calcBtnOrange} onPress={() => calcInputOperator('-')}>
-                  <Text style={styles.calcBtnTextWhite}>−</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.calcRow}>
-                <Pressable style={styles.calcBtn} onPress={() => calcInputDigit('1')}>
-                  <Text style={styles.calcBtnText}>1</Text>
-                </Pressable>
-                <Pressable style={styles.calcBtn} onPress={() => calcInputDigit('2')}>
-                  <Text style={styles.calcBtnText}>2</Text>
-                </Pressable>
-                <Pressable style={styles.calcBtn} onPress={() => calcInputDigit('3')}>
-                  <Text style={styles.calcBtnText}>3</Text>
-                </Pressable>
-                <Pressable style={styles.calcBtnOrange} onPress={() => calcInputOperator('+')}>
-                  <Text style={styles.calcBtnTextWhite}>+</Text>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtnOrange} onPress={() => calcInputOperator('×')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnTextWhite}>×</Text>
                 </Pressable>
               </View>
 
-              <View style={styles.calcRow}>
-                <Pressable style={[styles.calcBtn, styles.calcBtnZero]} onPress={() => calcInputDigit('0')}>
-                  <Text style={styles.calcBtnText}>0</Text>
+              <View style={scoreSheetCalculatorStyles.calcRow}>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtn} onPress={() => calcInputDigit('4')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>4</Text>
                 </Pressable>
-                <Pressable style={styles.calcBtn} onPress={() => {
+                <Pressable style={scoreSheetCalculatorStyles.calcBtn} onPress={() => calcInputDigit('5')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>5</Text>
+                </Pressable>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtn} onPress={() => calcInputDigit('6')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>6</Text>
+                </Pressable>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtnOrange} onPress={() => calcInputOperator('-')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnTextWhite}>−</Text>
+                </Pressable>
+              </View>
+
+              <View style={scoreSheetCalculatorStyles.calcRow}>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtn} onPress={() => calcInputDigit('1')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>1</Text>
+                </Pressable>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtn} onPress={() => calcInputDigit('2')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>2</Text>
+                </Pressable>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtn} onPress={() => calcInputDigit('3')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>3</Text>
+                </Pressable>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtnOrange} onPress={() => calcInputOperator('+')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnTextWhite}>+</Text>
+                </Pressable>
+              </View>
+
+              <View style={scoreSheetCalculatorStyles.calcRow}>
+                <Pressable style={[scoreSheetCalculatorStyles.calcBtn, scoreSheetCalculatorStyles.calcBtnZero]} onPress={() => calcInputDigit('0')}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>0</Text>
+                </Pressable>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtn} onPress={() => {
                   if (!calcDisplay.includes('.')) setCalcDisplay(calcDisplay + '.');
                 }}>
-                  <Text style={styles.calcBtnText}>.</Text>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnText}>.</Text>
                 </Pressable>
-                <Pressable style={styles.calcBtnOrange} onPress={calcEquals}>
-                  <Text style={styles.calcBtnTextWhite}>=</Text>
+                <Pressable style={scoreSheetCalculatorStyles.calcBtnOrange} onPress={calcEquals}>
+                  <Text style={scoreSheetCalculatorStyles.calcBtnTextWhite}>=</Text>
                 </Pressable>
               </View>
             </View>
@@ -669,7 +679,6 @@ const styles = StyleSheet.create({
 
   tableContainer: {
     flex: 1,
-    paddingHorizontal: 16,
   },
   table: {
     borderWidth: 1,
@@ -808,103 +817,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  calcOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 999,
-  },
-  calcContainer: {
-    width: '85%',
-    backgroundColor: Colors.dark.background,
-    borderRadius: 20,
-    padding: 16,
-  },
-  calcHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  calcTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  calcClose: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    padding: 4,
-  },
-  calcDisplay: {
-    backgroundColor: '#1C1C1C',
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'flex-end',
-  },
-  calcExpressionText: {
-    color: '#888888',
-    fontSize: 18,
-    fontWeight: '400',
-    marginBottom: 4,
-    minHeight: 22,
-  },
-  calcDisplayText: {
-    color: '#FFFFFF',
-    fontSize: 40,
-    fontWeight: '300',
-  },
-  calcButtons: {
-    gap: 10,
-  },
-  calcRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  calcBtn: {
-    flex: 1,
-    aspectRatio: 1,
-    backgroundColor: '#333333',
-    borderRadius: 999,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  calcBtnZero: {
-    flex: 2,
-    aspectRatio: undefined,
-  },
-  calcBtnGray: {
-    flex: 1,
-    aspectRatio: 1,
-    backgroundColor: '#A5A5A5',
-    borderRadius: 999,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  calcBtnOrange: {
-    flex: 1,
-    aspectRatio: 1,
-    backgroundColor: Colors.light.primary,
-    borderRadius: 999,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  calcBtnText: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '400',
-  },
-  calcBtnTextWhite: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '400',
-  },
 });
 

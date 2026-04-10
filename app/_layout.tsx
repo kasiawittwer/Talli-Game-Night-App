@@ -9,6 +9,7 @@ import 'react-native-reanimated';
 
 import { FavoritesProvider } from '@/context/favorites-context';
 import { ActiveGamesProvider } from '@/context/active-games-context';
+import { LastScoreSheetPathSync, LastScoreSheetProvider } from '@/context/last-score-sheet-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 SplashScreen.preventAutoHideAsync();
@@ -43,22 +44,25 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <FavoritesProvider>
         <ActiveGamesProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <Stack screenOptions={{ animation: 'none' }}>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'none' }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-              <Stack.Screen name="mexican-train" options={{ headerShown: false, animation: 'none' }} />
-              <Stack.Screen name="yahtzee" options={{ headerShown: false, animation: 'none' }} />
-              <Stack.Screen name="wizard" options={{ headerShown: false, animation: 'none' }} />
-              <Stack.Screen name="clue" options={{ headerShown: false, animation: 'none' }} />
-              <Stack.Screen name="scrabble" options={{ headerShown: false, animation: 'none' }} />
-              <Stack.Screen name="five-crowns" options={{ headerShown: false, animation: 'none' }} />
-              <Stack.Screen name="scattergories" options={{ headerShown: false, animation: 'none' }} />
-              <Stack.Screen name="hand-and-foot" options={{ headerShown: false, animation: 'none' }} />
-              <Stack.Screen name="rook" options={{ headerShown: false, animation: 'none' }} />
-            </Stack>
-            <StatusBar style="auto" />
-          </ThemeProvider>
+          <LastScoreSheetProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <Stack screenOptions={{ animation: 'none' }}>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'none' }} />
+                <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+                <Stack.Screen name="mexican-train" options={{ headerShown: false, animation: 'none' }} />
+                <Stack.Screen name="yahtzee" options={{ headerShown: false, animation: 'none' }} />
+                <Stack.Screen name="wizard" options={{ headerShown: false, animation: 'none' }} />
+                <Stack.Screen name="clue" options={{ headerShown: false, animation: 'none' }} />
+                <Stack.Screen name="scrabble" options={{ headerShown: false, animation: 'none' }} />
+                <Stack.Screen name="five-crowns" options={{ headerShown: false, animation: 'none' }} />
+                <Stack.Screen name="scattergories" options={{ headerShown: false, animation: 'none' }} />
+                <Stack.Screen name="hand-and-foot" options={{ headerShown: false, animation: 'none' }} />
+                <Stack.Screen name="rook" options={{ headerShown: false, animation: 'none' }} />
+              </Stack>
+              <LastScoreSheetPathSync />
+              <StatusBar style="auto" />
+            </ThemeProvider>
+          </LastScoreSheetProvider>
         </ActiveGamesProvider>
       </FavoritesProvider>
     </GestureHandlerRootView>

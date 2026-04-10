@@ -1,10 +1,10 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
+import { Colors, TABLET_MIN_WIDTH } from '@/constants/theme';
 
 const ICONS: Record<string, any> = {
   rulebook: require('@/assets/icons/rulebook-open.svg'),
@@ -24,6 +24,8 @@ const LABELS: Record<string, string> = {
 
 export function ScoreSheetBottomNav() {
   const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
+  const isTablet = windowWidth >= TABLET_MIN_WIDTH;
 
   const withNoAnimation = (href: string) => {
     const sep = href.includes('?') ? '&' : '?';
@@ -51,11 +53,8 @@ export function ScoreSheetBottomNav() {
   const selectedRouteName = 'score-sheets';
 
   return (
-    <View
-      style={[
-        styles.wrapper,
-      ]}>
-      <View style={styles.container}>
+    <View style={[styles.wrapper, isTablet && styles.wrapperTablet]}>
+      <View style={[styles.container, isTablet && styles.containerTablet]}>
         {buttons.map((btn) => {
           const isFocused = btn.routeName === selectedRouteName;
           const iconColor = isFocused ? Colors.light.secondary : Colors.light.surface;
@@ -66,9 +65,13 @@ export function ScoreSheetBottomNav() {
               key={btn.routeName}
               accessibilityRole="button"
               accessibilityState={isFocused ? { selected: true } : {}}
-              style={({ pressed }) => [styles.tab, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [
+                styles.tab,
+                isTablet && styles.tabTablet,
+                pressed && { opacity: 0.7 },
+              ]}
               onPress={btn.onPress}>
-              <View style={styles.iconLabelBubble}>
+              <View style={[styles.iconLabelBubble, isTablet && styles.iconLabelBubbleTablet]}>
                 {ICONS[btn.routeName] && (
                   <Image
                     source={ICONS[btn.routeName]}
@@ -90,17 +93,21 @@ export function ScoreSheetBottomNav() {
 }
 
 const styles = StyleSheet.create({
+  /** Same insets as main BottomTabBar; absolute so it overlays score sheet content. */
   wrapper: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 16,
     backgroundColor: 'transparent',
     zIndex: 1000,
     elevation: 1000,
+  },
+  wrapperTablet: {
+    paddingHorizontal: 80,
   },
   container: {
     flexDirection: 'row',
@@ -108,13 +115,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: Colors.dark.background,
     borderRadius: 50,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  containerTablet: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
     paddingVertical: 10,
+    alignSelf: 'center',
+    maxWidth: 600,
+    width: '100%',
   },
   tab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  tabTablet: {
+    flex: 1,
+    minWidth: 48,
   },
   iconLabelBubble: {
     flexDirection: 'column',
@@ -123,6 +142,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 12,
     borderRadius: 999,
+  },
+  iconLabelBubbleTablet: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   icon: {
     width: 24,

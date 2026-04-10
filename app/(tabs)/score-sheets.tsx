@@ -1,15 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Image } from 'expo-image';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
-import { useFavorites } from '@/context/favorites-context';
+import { Colors, Fonts, TABLET_MIN_WIDTH } from '@/constants/theme';
 import { useActiveGames } from '@/context/active-games-context';
+import { useFavorites } from '@/context/favorites-context';
 
 type ScoreSheet = {
   id: string;
@@ -34,6 +34,8 @@ const CUSTOM_SHEETS_KEY = '@customSheets';
 
 export default function ScoreSheetsScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const router = useRouter();
   const { favorites } = useFavorites();
   const { activeGames, clearActiveGame } = useActiveGames();
@@ -68,32 +70,32 @@ export default function ScoreSheetsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-    const loadCustomSheets = async () => {
-      try {
-        const stored = await AsyncStorage.getItem(CUSTOM_SHEETS_KEY);
-        if (!stored) return;
+      const loadCustomSheets = async () => {
+        try {
+          const stored = await AsyncStorage.getItem(CUSTOM_SHEETS_KEY);
+          if (!stored) return;
 
-        const parsed = JSON.parse(stored) as Array<{
-          id: string;
-          name: string;
-          color?: string;
-        }>;
-        if (!Array.isArray(parsed)) return;
+          const parsed = JSON.parse(stored) as Array<{
+            id: string;
+            name: string;
+            color?: string;
+          }>;
+          if (!Array.isArray(parsed)) return;
 
-        const mapped: ScoreSheet[] = parsed.map((s) => ({
-          id: s.id,
-          name: s.name,
-          color: s.color ?? Colors.light.secondary,
-          route: `/custom-score-sheet?sheetId=${s.id}`,
-        }));
+          const mapped: ScoreSheet[] = parsed.map((s) => ({
+            id: s.id,
+            name: s.name,
+            color: s.color ?? Colors.light.secondary,
+            route: `/custom-score-sheet?sheetId=${s.id}`,
+          }));
 
-        setCustomSheets(mapped);
-      } catch {
-        // ignore
-      }
-    };
+          setCustomSheets(mapped);
+        } catch {
+          // ignore
+        }
+      };
 
-    void loadCustomSheets();
+      void loadCustomSheets();
     }, [])
   );
 
@@ -104,6 +106,7 @@ export default function ScoreSheetsScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
+          isTablet && styles.scrollContentTablet,
           { paddingTop: insets.top + 16 },
         ]}
         showsVerticalScrollIndicator={true}
@@ -112,9 +115,9 @@ export default function ScoreSheetsScreen() {
         {activeGames.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Active Games</Text>
-            <View style={styles.cardsRow}>
+            <View style={[styles.cardsRow, isTablet && styles.cardsRowTablet]}>
               {activeGames.map((game) => (
-                <View key={game.id} style={styles.scoreCard}>
+                <View key={game.id} style={[styles.scoreCard, isTablet && styles.scoreCardTablet]}>
                   {game.route.includes('/custom-score-sheet') && (
                     <Pressable
                       style={styles.deleteButton}
@@ -132,18 +135,25 @@ export default function ScoreSheetsScreen() {
                   )}
 
                   <Pressable onPress={() => router.push(game.route as any)} style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle}>{game.name}</Text>
-                    <View style={styles.cardPreview}>
+                    <Text style={[styles.cardTitle, isTablet && styles.cardTitleTablet]}>{game.name}</Text>
+                    <View style={[styles.cardPreview, isTablet && styles.cardPreviewTablet]}>
                       <View style={styles.previewHeader}>
-                        <Text style={styles.previewTitleSmall}>{game.name}</Text>
+                        <Text style={[styles.previewTitleSmall, isTablet && styles.previewTitleSmallTablet]}>
+                          {game.name}
+                        </Text>
                       </View>
-                      <View style={[styles.previewColorBar, { backgroundColor: game.color }]}>
+                      <View
+                        style={[
+                          styles.previewColorBar,
+                          isTablet && styles.previewColorBarTablet,
+                          { backgroundColor: game.color },
+                        ]}>
                         <View style={styles.previewColorSegment} />
                         <View style={styles.previewColorSegment} />
                       </View>
-                      <View style={styles.previewLines}>
+                      <View style={[styles.previewLines, isTablet && styles.previewLinesTablet]}>
                         {[1, 2, 3, 4, 5].map((i) => (
-                          <View key={i} style={styles.previewLine} />
+                          <View key={i} style={[styles.previewLine, isTablet && styles.previewLineTablet]} />
                         ))}
                       </View>
                     </View>
@@ -158,25 +168,32 @@ export default function ScoreSheetsScreen() {
         {favorites.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Favorite Games</Text>
-            <View style={styles.cardsRow}>
+            <View style={[styles.cardsRow, isTablet && styles.cardsRowTablet]}>
               {favorites.map((sheet) => (
                 <Pressable
                   key={sheet.id}
-                  style={styles.scoreCard}
+                  style={[styles.scoreCard, isTablet && styles.scoreCardTablet]}
                   onPress={() => handleFavoritePress(sheet.route)}
                 >
-                  <Text style={styles.cardTitle}>{sheet.name}</Text>
-                  <View style={styles.cardPreview}>
+                  <Text style={[styles.cardTitle, isTablet && styles.cardTitleTablet]}>{sheet.name}</Text>
+                  <View style={[styles.cardPreview, isTablet && styles.cardPreviewTablet]}>
                     <View style={styles.previewHeader}>
-                      <Text style={styles.previewTitleSmall}>{sheet.name}</Text>
+                      <Text style={[styles.previewTitleSmall, isTablet && styles.previewTitleSmallTablet]}>
+                        {sheet.name}
+                      </Text>
                     </View>
-                    <View style={[styles.previewColorBar, { backgroundColor: sheet.color }]}>
+                    <View
+                      style={[
+                        styles.previewColorBar,
+                        isTablet && styles.previewColorBarTablet,
+                        { backgroundColor: sheet.color },
+                      ]}>
                       <View style={styles.previewColorSegment} />
                       <View style={styles.previewColorSegment} />
                     </View>
-                    <View style={styles.previewLines}>
+                    <View style={[styles.previewLines, isTablet && styles.previewLinesTablet]}>
                       {[1, 2, 3, 4, 5].map((i) => (
-                        <View key={i} style={styles.previewLine} />
+                        <View key={i} style={[styles.previewLine, isTablet && styles.previewLineTablet]} />
                       ))}
                     </View>
                   </View>
@@ -188,9 +205,9 @@ export default function ScoreSheetsScreen() {
 
         {/* Games Section */}
         <Text style={styles.sectionTitle}>Games</Text>
-        <View style={styles.cardsRow}>
+        <View style={[styles.cardsRow, isTablet && styles.cardsRowTablet]}>
           {gamesToShow.map((sheet) => (
-            <View key={sheet.id} style={styles.scoreCard}>
+            <View key={sheet.id} style={[styles.scoreCard, isTablet && styles.scoreCardTablet]}>
               {sheet.route.includes('/custom-score-sheet') && (
                 <Pressable
                   style={styles.deleteButton}
@@ -208,18 +225,25 @@ export default function ScoreSheetsScreen() {
               )}
 
               <Pressable onPress={() => router.push(sheet.route as any)} style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>{sheet.name}</Text>
-                <View style={styles.cardPreview}>
+                <Text style={[styles.cardTitle, isTablet && styles.cardTitleTablet]}>{sheet.name}</Text>
+                <View style={[styles.cardPreview, isTablet && styles.cardPreviewTablet]}>
                   <View style={styles.previewHeader}>
-                    <Text style={styles.previewTitleSmall}>{sheet.name}</Text>
+                    <Text style={[styles.previewTitleSmall, isTablet && styles.previewTitleSmallTablet]}>
+                      {sheet.name}
+                    </Text>
                   </View>
-                  <View style={[styles.previewColorBar, { backgroundColor: sheet.color }]}>
+                  <View
+                    style={[
+                      styles.previewColorBar,
+                      isTablet && styles.previewColorBarTablet,
+                      { backgroundColor: sheet.color },
+                    ]}>
                     <View style={styles.previewColorSegment} />
                     <View style={styles.previewColorSegment} />
                   </View>
-                  <View style={styles.previewLines}>
+                  <View style={[styles.previewLines, isTablet && styles.previewLinesTablet]}>
                     {[1, 2, 3, 4, 5].map((i) => (
-                      <View key={i} style={styles.previewLine} />
+                      <View key={i} style={[styles.previewLine, isTablet && styles.previewLineTablet]} />
                     ))}
                   </View>
                 </View>
@@ -248,6 +272,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 24,
   },
+  scrollContentTablet: {
+    paddingHorizontal: 96,
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
+  },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
@@ -261,6 +291,11 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 24,
   },
+  cardsRowTablet: {
+    justifyContent: 'flex-start',
+    alignContent: 'flex-start',
+    gap: 18,
+  },
   scoreCard: {
     width: '30%',
     backgroundColor: '#FFFFFF',
@@ -273,6 +308,13 @@ const styles = StyleSheet.create({
     elevation: 3,
     position: 'relative',
   },
+  scoreCardTablet: {
+    width: '30%',
+    flexGrow: 0,
+    padding: 12,
+    transform: [{ scale: 1.1 }],
+    marginVertical: 8,
+  },
   cardTitle: {
     fontFamily: Fonts.body,
     fontSize: 13,
@@ -280,12 +322,19 @@ const styles = StyleSheet.create({
     color: Colors.dark.background,
     marginBottom: 6,
   },
+  cardTitleTablet: {
+    fontSize: 14,
+  },
   cardPreview: {
     backgroundColor: '#FAFAFA',
     borderRadius: 6,
     padding: 6,
     borderWidth: 1,
     borderColor: '#E5E5E5',
+  },
+  cardPreviewTablet: {
+    borderRadius: 8,
+    padding: 8,
   },
   deleteButton: {
     position: 'absolute',
@@ -312,12 +361,19 @@ const styles = StyleSheet.create({
     color: Colors.dark.background,
     textAlign: 'center',
   },
+  previewTitleSmallTablet: {
+    fontSize: 8,
+  },
   previewColorBar: {
     flexDirection: 'row',
     height: 8,
     borderRadius: 2,
     marginBottom: 4,
     overflow: 'hidden',
+  },
+  previewColorBarTablet: {
+    height: 10,
+    marginBottom: 5,
   },
   previewColorSegment: {
     flex: 1,
@@ -327,9 +383,16 @@ const styles = StyleSheet.create({
   previewLines: {
     gap: 3,
   },
+  previewLinesTablet: {
+    gap: 4,
+  },
   previewLine: {
     height: 4,
     backgroundColor: '#E5E5E5',
+    borderRadius: 1,
+  },
+  previewLineTablet: {
+    height: 5,
     borderRadius: 1,
   },
   createButton: {

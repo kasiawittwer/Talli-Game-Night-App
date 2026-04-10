@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,17 +14,24 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, TABLET_MIN_WIDTH } from '@/constants/theme';
 
-const CIRCLE_SIZE = 260;
-const STROKE_WIDTH = 16;
-const RADIUS = (CIRCLE_SIZE - STROKE_WIDTH) / 2;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const CIRCLE_SIZE_PHONE = 260;
+const CIRCLE_SIZE_TABLET = 400;
+const STROKE_PHONE = 16;
+const STROKE_TABLET = 22;
 
 type Mode = 'countdown' | 'stopwatch';
 
 export default function TimersScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const isTablet = windowWidth >= TABLET_MIN_WIDTH;
+  const circleSize = isTablet ? CIRCLE_SIZE_TABLET : CIRCLE_SIZE_PHONE;
+  const strokeWidth = isTablet ? STROKE_TABLET : STROKE_PHONE;
+  const radius = (circleSize - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+
   const scrollRef = useRef<ScrollView | null>(null);
   const [pageWidth, setPageWidth] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
@@ -124,7 +132,7 @@ export default function TimersScreen() {
   };
 
   const progress = initialMs > 0 ? remainingMs / initialMs : 1;
-  const strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+  const strokeDashoffset = circumference * (1 - progress);
 
   const adjustUnit = (unit: 'hours' | 'minutes' | 'seconds', delta: number) => {
     if (isRunning) return;
@@ -148,103 +156,106 @@ export default function TimersScreen() {
   };
 
   return (
-    <ThemedView style={styles.screen}>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onLayout={onLayoutPage}
-        onMomentumScrollEnd={handleScrollEnd}
-        contentContainerStyle={{ paddingTop: insets.top + 16 }}>
-        {/* PAGE 1: Countdown timer */}
-        <View style={[styles.page, { width: pageWidth || '100%' }]}>
-          <View style={styles.timeControlsRow}>
-            <TimeBlock
-              label="Hours"
-              value={hours}
-              onIncrement={() => adjustUnit('hours', 1)}
-              onDecrement={() => adjustUnit('hours', -1)}
-            />
-            <TimeBlock
-              label="Minutes"
-              value={minutes}
-              onIncrement={() => adjustUnit('minutes', 1)}
-              onDecrement={() => adjustUnit('minutes', -1)}
-            />
-            <TimeBlock
-              label="Seconds"
-              value={seconds}
-              onIncrement={() => adjustUnit('seconds', 1)}
-              onDecrement={() => adjustUnit('seconds', -1)}
-            />
+    <ThemedView style={[styles.screen, isTablet && styles.screenTablet]}>
+      <View style={[styles.contentColumn, isTablet && styles.contentColumnTablet]}>
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onLayout={onLayoutPage}
+          onMomentumScrollEnd={handleScrollEnd}
+          contentContainerStyle={{ paddingTop: insets.top + 16 }}>
+          {/* PAGE 1: Countdown timer */}
+          <View style={[styles.page, { width: pageWidth || '100%' }]}>
+            <View style={[styles.timeControlsRow, isTablet && styles.timeControlsRowTablet]}>
+              <TimeBlock
+                label="Hours"
+                value={hours}
+                isTablet={isTablet}
+                onIncrement={() => adjustUnit('hours', 1)}
+                onDecrement={() => adjustUnit('hours', -1)}
+              />
+              <TimeBlock
+                label="Minutes"
+                value={minutes}
+                isTablet={isTablet}
+                onIncrement={() => adjustUnit('minutes', 1)}
+                onDecrement={() => adjustUnit('minutes', -1)}
+              />
+              <TimeBlock
+                label="Seconds"
+                value={seconds}
+                isTablet={isTablet}
+                onIncrement={() => adjustUnit('seconds', 1)}
+                onDecrement={() => adjustUnit('seconds', -1)}
+              />
+            </View>
+
+            <View style={[styles.circleWrapper, isTablet && styles.circleWrapperTablet]}>
+              <Svg width={circleSize} height={circleSize}>
+                <Circle
+                  cx={circleSize / 2}
+                  cy={circleSize / 2}
+                  r={radius}
+                  stroke={`${Colors.light.primary}80`}
+                  strokeWidth={strokeWidth}
+                  fill="transparent"
+                />
+                <Circle
+                  cx={circleSize / 2}
+                  cy={circleSize / 2}
+                  r={radius}
+                  stroke={Colors.light.primary}
+                  strokeWidth={strokeWidth}
+                  fill="transparent"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                  transform={`rotate(-90 ${circleSize / 2} ${circleSize / 2})`}
+                />
+              </Svg>
+              <View style={styles.circleTimeContainer}>
+                <Text style={[styles.circleTime, isTablet && styles.circleTimeTablet]}>
+                  {remainingMs > 0 ? formatCountdown() : '00:00'}
+                </Text>
+              </View>
+            </View>
           </View>
 
-          <View style={styles.circleWrapper}>
-            <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE}>
-              {/* Background circle (50% tint - lighter) */}
-              <Circle
-                cx={CIRCLE_SIZE / 2}
-                cy={CIRCLE_SIZE / 2}
-                r={RADIUS}
-                stroke={`${Colors.light.primary}80`}
-                strokeWidth={STROKE_WIDTH}
-                fill="transparent"
-              />
-              {/* Progress circle (solid orange) */}
-              <Circle
-                cx={CIRCLE_SIZE / 2}
-                cy={CIRCLE_SIZE / 2}
-                r={RADIUS}
-                stroke={Colors.light.primary}
-                strokeWidth={STROKE_WIDTH}
-                fill="transparent"
-                strokeDasharray={CIRCUMFERENCE}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                transform={`rotate(-90 ${CIRCLE_SIZE / 2} ${CIRCLE_SIZE / 2})`}
-              />
-            </Svg>
-            <View style={styles.circleTimeContainer}>
-              <Text style={styles.circleTime}>
-                {remainingMs > 0 ? formatCountdown() : '00:00'}
+          {/* PAGE 2: Stopwatch */}
+          <View style={[styles.page, { width: pageWidth || '100%' }]}>
+            <View style={styles.stopwatchCenter}>
+              <Text style={[styles.stopwatchTime, isTablet && styles.stopwatchTimeTablet]}>
+                {formatStopwatch()}
               </Text>
             </View>
           </View>
+        </ScrollView>
+
+        <View style={[styles.dotsRow, isTablet && styles.dotsRowTablet]}>
+          <View
+            style={[
+              styles.dot,
+              { backgroundColor: pageIndex === 0 ? Colors.light.primary : '#D0D0D0' },
+            ]}
+          />
+          <View
+            style={[
+              styles.dot,
+              { backgroundColor: pageIndex === 1 ? Colors.light.primary : '#D0D0D0' },
+            ]}
+          />
         </View>
 
-        {/* PAGE 2: Stopwatch */}
-        <View style={[styles.page, { width: pageWidth || '100%' }]}>
-          <View style={styles.stopwatchCenter}>
-            <Text style={styles.stopwatchTime}>{formatStopwatch()}</Text>
-          </View>
+        <View style={styles.bottomButtonsRow}>
+          <Pressable style={styles.resetButton} onPress={handleReset}>
+            <ThemedText style={styles.resetText}>Reset</ThemedText>
+          </Pressable>
+          <Pressable style={styles.startButton} onPress={handleStartStop}>
+            <ThemedText style={styles.startText}>{isRunning ? 'Stop' : 'Start'}</ThemedText>
+          </Pressable>
         </View>
-      </ScrollView>
-
-      {/* Pagination dots */}
-      <View style={styles.dotsRow}>
-        <View
-          style={[
-            styles.dot,
-            { backgroundColor: pageIndex === 0 ? Colors.light.primary : '#D0D0D0' },
-          ]}
-        />
-        <View
-          style={[
-            styles.dot,
-            { backgroundColor: pageIndex === 1 ? Colors.light.primary : '#D0D0D0' },
-          ]}
-        />
-      </View>
-
-      {/* Controls */}
-      <View style={styles.bottomButtonsRow}>
-        <Pressable style={styles.resetButton} onPress={handleReset}>
-          <ThemedText style={styles.resetText}>Reset</ThemedText>
-        </Pressable>
-        <Pressable style={styles.startButton} onPress={handleStartStop}>
-          <ThemedText style={styles.startText}>{isRunning ? 'Stop' : 'Start'}</ThemedText>
-        </Pressable>
       </View>
     </ThemedView>
   );
@@ -253,13 +264,14 @@ export default function TimersScreen() {
 type TimeBlockProps = {
   label: string;
   value: number;
+  isTablet: boolean;
   onIncrement: () => void;
   onDecrement: () => void;
 };
 
-function TimeBlock({ label, value, onIncrement, onDecrement }: TimeBlockProps) {
+function TimeBlock({ label, value, isTablet, onIncrement, onDecrement }: TimeBlockProps) {
   return (
-    <View style={styles.timeBlock}>
+    <View style={[styles.timeBlock, isTablet && styles.timeBlockTablet]}>
       <Pressable
         style={({ pressed }) => [styles.arrowButton, pressed && styles.arrowPressed]}
         onPress={onIncrement}
@@ -276,8 +288,8 @@ function TimeBlock({ label, value, onIncrement, onDecrement }: TimeBlockProps) {
       </Pressable>
 
       <View style={styles.valueContainer}>
-        <Text style={styles.timeBlockValue}>{value}</Text>
-        <Text style={styles.timeBlockLabel}>{label}</Text>
+        <Text style={[styles.timeBlockValue, isTablet && styles.timeBlockValueTablet]}>{value}</Text>
+        <Text style={[styles.timeBlockLabel, isTablet && styles.timeBlockLabelTablet]}>{label}</Text>
       </View>
 
       <Pressable
@@ -304,6 +316,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 24,
   },
+  screenTablet: {
+    paddingHorizontal: 96,
+    paddingBottom: 72,
+  },
+  contentColumn: {
+    flex: 1,
+    width: '100%',
+  },
+  contentColumnTablet: {
+    maxWidth: 900,
+    alignSelf: 'center',
+  },
   page: {
     flex: 1,
     alignItems: 'center',
@@ -314,6 +338,12 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 24,
   },
+  timeControlsRowTablet: {
+    justifyContent: 'center',
+    gap: 32,
+    marginTop: 40,
+    marginBottom: 40,
+  },
   timeBlock: {
     flex: 1,
     marginHorizontal: 3,
@@ -323,6 +353,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 96,
+  },
+  timeBlockTablet: {
+    flex: 0,
+    flexGrow: 0,
+    width: 150,
+    marginHorizontal: 0,
+    minHeight: 108,
+    borderRadius: 12,
+    paddingVertical: 10,
   },
   arrowButton: {
     paddingVertical: 5,
@@ -350,16 +389,25 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '600',
   },
+  timeBlockValueTablet: {
+    fontSize: 26,
+  },
   timeBlockLabel: {
     color: '#AAAAAA',
     fontSize: 11,
     marginTop: 2,
+  },
+  timeBlockLabelTablet: {
+    fontSize: 12,
   },
   circleWrapper: {
     marginTop: 70,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+  },
+  circleWrapperTablet: {
+    marginTop: 172,
   },
   circleTimeContainer: {
     position: 'absolute',
@@ -374,6 +422,9 @@ const styles = StyleSheet.create({
     fontSize: 36,
     color: Colors.light.primary,
   },
+  circleTimeTablet: {
+    fontSize: 58,
+  },
   stopwatchCenter: {
     flex: 1,
     alignItems: 'center',
@@ -383,6 +434,9 @@ const styles = StyleSheet.create({
     fontSize: 52,
     color: Colors.light.primary,
   },
+  stopwatchTimeTablet: {
+    fontSize: 80,
+  },
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -390,6 +444,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 16,
     marginBottom: 48,
+  },
+  dotsRowTablet: {
+    marginTop: 20,
+    marginBottom: 28,
   },
   dot: {
     width: 8,

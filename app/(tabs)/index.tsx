@@ -1,17 +1,19 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, TABLET_MIN_WIDTH } from '@/constants/theme';
 import { useActiveGames } from '@/context/active-games-context';
 import { useFavorites } from '@/context/favorites-context';
 
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const router = useRouter();
   const { favorites } = useFavorites();
   const { activeGames, clearActiveGame } = useActiveGames();
@@ -45,11 +47,16 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.screen}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 16 }]}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          isTablet && styles.scrollContentTablet,
+          { paddingTop: insets.top + 16 },
+        ]}>
         <View style={styles.logoWrapper}>
           <Image
             source={require('@/assets/images/Talli-logo.svg')}
-            style={styles.logo}
+            style={[styles.logo, isTablet && styles.logoTablet]}
             contentFit="contain"
           />
         </View>
@@ -92,25 +99,29 @@ export default function HomeScreen() {
               <ThemedText type="subtitle">Favorite Games</ThemedText>
             </View>
 
-            <View style={styles.favoritesGrid}>
+            <View style={[styles.favoritesGrid, isTablet && styles.favoritesGridTablet]}>
               {favorites.map((fav) => (
                 <Pressable
                   key={fav.id}
-                  style={styles.favoriteCard}
+                  style={[styles.favoriteCard, isTablet && styles.favoriteCardTablet]}
                   onPress={() => handleFavoritePress(fav.route)}
                 >
-                  <ThemedText style={styles.favoriteName}>{fav.name}</ThemedText>
-                  <View style={styles.cardPreview}>
+                  <ThemedText style={[styles.favoriteName, isTablet && styles.favoriteNameTablet]}>
+                    {fav.name}
+                  </ThemedText>
+                  <View style={[styles.cardPreview, isTablet && styles.cardPreviewTablet]}>
                     <View style={styles.previewHeader}>
-                      <ThemedText style={styles.previewTitle}>{fav.name}</ThemedText>
+                      <ThemedText style={[styles.previewTitle, isTablet && styles.previewTitleTablet]}>
+                        {fav.name}
+                      </ThemedText>
                     </View>
-                    <View style={[styles.previewColorBar, { backgroundColor: fav.color }]}>
+                    <View style={[styles.previewColorBar, isTablet && styles.previewColorBarTablet, { backgroundColor: fav.color }]}>
                       <View style={styles.previewColorSegment} />
                       <View style={styles.previewColorSegment} />
                     </View>
-                    <View style={styles.previewLines}>
+                    <View style={[styles.previewLines, isTablet && styles.previewLinesTablet]}>
                       {[1, 2, 3, 4, 5].map((i) => (
-                        <View key={i} style={styles.previewLine} />
+                        <View key={i} style={[styles.previewLine, isTablet && styles.previewLineTablet]} />
                       ))}
                     </View>
                   </View>
@@ -132,6 +143,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 24,
   },
+  scrollContentTablet: {
+    paddingHorizontal: 96,
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
+  },
   logoWrapper: {
     alignItems: 'center',
     marginBottom: 24,
@@ -139,6 +156,10 @@ const styles = StyleSheet.create({
   logo: {
     width: 280,
     height: 96,
+  },
+  logoTablet: {
+    width: 460,
+    height: 158,
   },
   activeSection: {
     gap: 12,
@@ -188,7 +209,7 @@ const styles = StyleSheet.create({
   },
   newGameButton: {
     alignSelf: 'center',
-    marginBottom: 24,
+    marginBottom: 36,
     backgroundColor: Colors.dark.background,
     paddingHorizontal: 32,
     paddingVertical: 12,
@@ -206,6 +227,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 12,
   },
+  favoritesGridTablet: {
+    justifyContent: 'flex-start',
+    alignContent: 'flex-start',
+    gap: 18,
+  },
   favoriteCard: {
     width: '30%',
     backgroundColor: '#FFFFFF',
@@ -217,10 +243,21 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  /** Three tiles per row, left-aligned; same % width as phone, scaled content (not stretched wide). */
+  favoriteCardTablet: {
+    width: '30%',
+    flexGrow: 0,
+    padding: 12,
+    transform: [{ scale: 1.1 }],
+    marginVertical: 8,
+  },
   favoriteName: {
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 6,
+  },
+  favoriteNameTablet: {
+    fontSize: 14,
   },
   cardPreview: {
     backgroundColor: '#FAFAFA',
@@ -229,6 +266,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E5E5',
   },
+  cardPreviewTablet: {
+    borderRadius: 8,
+    padding: 8,
+  },
   previewHeader: {
     marginBottom: 4,
   },
@@ -236,12 +277,19 @@ const styles = StyleSheet.create({
     fontSize: 6,
     textAlign: 'center',
   },
+  previewTitleTablet: {
+    fontSize: 8,
+  },
   previewColorBar: {
     flexDirection: 'row',
     height: 8,
     borderRadius: 2,
     marginBottom: 4,
     overflow: 'hidden',
+  },
+  previewColorBarTablet: {
+    height: 10,
+    marginBottom: 5,
   },
   previewColorSegment: {
     flex: 1,
@@ -251,9 +299,16 @@ const styles = StyleSheet.create({
   previewLines: {
     gap: 3,
   },
+  previewLinesTablet: {
+    gap: 4,
+  },
   previewLine: {
     height: 4,
     backgroundColor: '#E5E5E5',
+    borderRadius: 1,
+  },
+  previewLineTablet: {
+    height: 5,
     borderRadius: 1,
   },
 });

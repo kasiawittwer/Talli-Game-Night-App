@@ -34,3 +34,6 @@ export const Fonts = {
   body: 'WixMadeforText',
   mono: 'monospace',
 };
+
+/** Width at which we use iPad-style layout (portrait iPad and large tablets). */
+export const TABLET_MIN_WIDTH = 768;
