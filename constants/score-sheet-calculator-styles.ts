@@ -66,22 +66,34 @@ export const scoreSheetCalculatorStyles = StyleSheet.create({
   calcRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     gap: 8,
   },
   calcBtn: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    minHeight: 0,
     aspectRatio: 1,
     backgroundColor: '#333333',
     borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  /**
+   * Spans two columns; height matches one key width (same as other rows). On web, omitting
+   * aspectRatio let flex stretch the row and distorted "." and "=" — use 2:1 width:height.
+   */
   calcBtnZero: {
     flex: 2,
-    aspectRatio: undefined,
+    flexBasis: 0,
+    aspectRatio: 2,
   },
   calcBtnGray: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    minHeight: 0,
     aspectRatio: 1,
     backgroundColor: '#A5A5A5',
     borderRadius: 999,
@@ -90,6 +102,9 @@ export const scoreSheetCalculatorStyles = StyleSheet.create({
   },
   calcBtnOrange: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    minHeight: 0,
     aspectRatio: 1,
     backgroundColor: Colors.light.primary,
     borderRadius: 999,

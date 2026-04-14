@@ -14,10 +14,19 @@ export type GameScoreSheetTemplate = {
 
 export function getGameAssistantConfig(): GameAssistantConfig {
   const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string | undefined>;
-  const rawUrl = extra.GAME_ASSISTANT_API_URL ?? '';
+  const envUrl =
+    typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_GAME_ASSISTANT_API_URL
+      ? String(process.env.EXPO_PUBLIC_GAME_ASSISTANT_API_URL).trim()
+      : '';
+  const envKey =
+    typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_OPENAI_API_KEY
+      ? String(process.env.EXPO_PUBLIC_OPENAI_API_KEY).trim()
+      : '';
+  const rawUrl = (extra.GAME_ASSISTANT_API_URL ?? envUrl ?? '').trim();
+  const rawKey = (extra.OPENAI_API_KEY ?? envKey ?? '').trim();
   return {
-    openaiApiKey: extra.OPENAI_API_KEY ?? '',
-    assistantApiUrl: typeof rawUrl === 'string' ? rawUrl.trim().replace(/\/$/, '') : '',
+    openaiApiKey: rawKey,
+    assistantApiUrl: rawUrl.replace(/\/$/, ''),
   };
 }
 

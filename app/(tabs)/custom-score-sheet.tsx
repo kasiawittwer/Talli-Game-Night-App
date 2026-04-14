@@ -10,14 +10,15 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 
 import { KeyboardTextInput as TextInput } from '@/components/keyboard-text-input';
 import { keyboardVerticalOffsetBelowSiblingHeader } from '@/constants/keyboard';
+import { SCORE_SHEET_NAME_MAX_LENGTH } from '@/constants/score-sheet-input';
 import { scoreSheetCalculatorStyles } from '@/constants/score-sheet-calculator-styles';
-import { Colors, Fonts, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { Colors, Fonts, SCREEN_EXTRA_TOP_PADDING, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { useLayoutDimensions } from '@/hooks/use-layout-dimensions';
 import { useActiveGames } from '@/context/active-games-context';
 import { useFavorites } from '@/context/favorites-context';
 import { generateScoreSheetTemplateFromLlm } from '@/lib/game-assistant-llm';
@@ -203,7 +204,7 @@ async function upsertCustomSheetEntry(entry: CustomSheetEntry) {
 
 export default function CustomScoreSheetScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useLayoutDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const router = useRouter();
   const params = useLocalSearchParams<{ sheetId?: string }>();
@@ -219,10 +220,6 @@ export default function CustomScoreSheetScreen() {
   /** Raw text in the yellow “# of Players” field; empty → default 3 on generate */
   const [playersField, setPlayersField] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [promptInputHeight, setPromptInputHeight] = useState(46);
-  const PROMPT_INPUT_MAX_HEIGHT = 220;
-  const PROMPT_INPUT_MIN_HEIGHT = 46;
-  const PROMPT_INPUT_LINE_HEIGHT_EST = 22;
 
   const [customSheetId, setCustomSheetId] = useState<string | null>(sheetId ?? null);
   const [template, setTemplate] = useState<SheetTemplate | null>(null);
@@ -355,7 +352,6 @@ export default function CustomScoreSheetScreen() {
     setCalcPrevValue(null);
     setCalcOperator(null);
     setCalcWaitingForOperand(false);
-    setPromptInputHeight(46);
   };
 
   // Load saved custom sheet when opened with `?sheetId=...`.
@@ -617,6 +613,7 @@ export default function CustomScoreSheetScreen() {
                     placeholderTextColor="rgba(255,255,255,0.72)"
                     autoCorrect={false}
                     textAlign="center"
+                    maxLength={SCORE_SHEET_NAME_MAX_LENGTH}
                   />
                 </View>
               ))}
@@ -672,7 +669,7 @@ export default function CustomScoreSheetScreen() {
   const isSheetFavorite = customSheetInfo ? isFavorite(customSheetInfo.id) : false;
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={[styles.screen, { paddingTop: insets.top + SCREEN_EXTRA_TOP_PADDING }]}>
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={handleBackHeader}>
           <Image
@@ -740,7 +737,7 @@ export default function CustomScoreSheetScreen() {
                 styles.bottomInputDock,
                 isTablet && styles.bottomInputDockTablet,
                 {
-                  paddingBottom: Math.max(insets.bottom, 6) + 0,
+                  paddingBottom: Math.max(insets.bottom, 8) + 22,
                 },
               ]}
             >
@@ -756,7 +753,7 @@ export default function CustomScoreSheetScreen() {
                 />
                 <TextInput
                   style={styles.dockPlayersInput}
-                  placeholder={`# of Players (1–${MAX_CUSTOM_SHEET_PLAYERS})`}
+                  placeholder={`Players (1–${MAX_CUSTOM_SHEET_PLAYERS})`}
                   placeholderTextColor="rgba(14, 9, 6, 0.45)"
                   value={playersField}
                   onChangeText={(t) => {
@@ -776,28 +773,14 @@ export default function CustomScoreSheetScreen() {
 
               <View style={styles.promptBar}>
                 <TextInput
-                  style={[styles.promptInput, { minHeight: promptInputHeight }]}
+                  style={styles.promptInput}
                   placeholder="Number of rows/rounds"
                   placeholderTextColor="#999"
                   value={prompt}
-                  onChangeText={(t) => {
-                    setPrompt(t);
-
-                    const trimmedEnd = t.replace(/\n+$/g, '');
-                    const lineCount = trimmedEnd.length === 0 ? 1 : trimmedEnd.split('\n').length;
-                    const estimated = PROMPT_INPUT_MIN_HEIGHT + (lineCount - 1) * PROMPT_INPUT_LINE_HEIGHT_EST;
-                    const clamped = Math.max(PROMPT_INPUT_MIN_HEIGHT, Math.min(PROMPT_INPUT_MAX_HEIGHT, estimated));
-
-                    setPromptInputHeight((prev) => (clamped < prev ? clamped : prev));
-                  }}
+                  onChangeText={setPrompt}
                   multiline
                   textAlignVertical="top"
-                  scrollEnabled={promptInputHeight >= PROMPT_INPUT_MAX_HEIGHT}
-                  onContentSizeChange={(e) => {
-                    const h = e.nativeEvent.contentSize.height;
-                    const clamped = Math.max(PROMPT_INPUT_MIN_HEIGHT, Math.min(PROMPT_INPUT_MAX_HEIGHT, h));
-                    setPromptInputHeight(clamped);
-                  }}
+                  scrollEnabled
                   returnKeyType="send"
                   blurOnSubmit
                   onSubmitEditing={() => {
@@ -1091,10 +1074,8 @@ const styles = StyleSheet.create({
   },
   bottomInputDock: {
     paddingHorizontal: 24,
-    paddingTop: 4,
+    paddingTop: 14,
     backgroundColor: Colors.light.background,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(14, 9, 6, 0.08)',
   },
   bottomInputDockTablet: {
     paddingHorizontal: 96,
@@ -1105,36 +1086,50 @@ const styles = StyleSheet.create({
   dockTopRow: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 10,
+    marginBottom: 12,
+    width: '100%',
+    minWidth: 0,
   },
   dockGameNameInput: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    height: 48,
     backgroundColor: Colors.light.secondary,
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    fontSize: 16,
-    fontWeight: '500',
+    borderRadius: 999,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    fontWeight: '400',
     color: Colors.light.surface,
     fontFamily: Fonts.body,
     textAlign: 'center',
+    outlineWidth: 0,
+    outlineColor: 'transparent',
+    borderWidth: 0,
   },
   dockPlayersInput: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    height: 48,
     backgroundColor: Colors.light.accent,
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    fontSize: 16,
-    fontWeight: '600',
+    borderRadius: 999,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    fontWeight: '400',
     color: Colors.light.text,
     fontFamily: Fonts.body,
     textAlign: 'center',
+    outlineWidth: 0,
+    outlineColor: 'transparent',
+    borderWidth: 0,
   },
   heroText: {
     fontFamily: Fonts.gameTitle,
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: '400',
     color: Colors.dark.background,
     textAlign: 'center',
   },
@@ -1163,18 +1158,21 @@ const styles = StyleSheet.create({
   previewTitle: {
     fontFamily: Fonts.gameTitle,
     fontSize: 28,
-    fontWeight: '600',
+    fontWeight: '400',
     color: Colors.dark.background,
     textAlign: 'center',
   },
   previewTitleInput: {
     fontFamily: Fonts.gameTitle,
     fontSize: 28,
-    fontWeight: '600',
+    fontWeight: '400',
     color: Colors.dark.background,
     textAlign: 'center',
     width: '100%',
     paddingHorizontal: 12,
+    outlineWidth: 0,
+    outlineColor: 'transparent',
+    borderWidth: 0,
   },
 
   previewConfirmRow: {
@@ -1228,7 +1226,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontFamily: Fonts.gameTitle,
     fontSize: 28,
-    fontWeight: '600',
+    fontWeight: '400',
     color: Colors.dark.background,
     textAlign: 'center',
   },
@@ -1245,11 +1243,14 @@ const styles = StyleSheet.create({
   cardTitleInput: {
     fontFamily: Fonts.gameTitle,
     fontSize: 28,
-    fontWeight: '600',
+    fontWeight: '400',
     color: Colors.dark.background,
     textAlign: 'center',
     width: '100%',
     paddingHorizontal: 12,
+    outlineWidth: 0,
+    outlineColor: 'transparent',
+    borderWidth: 0,
   },
 
   table: {
@@ -1272,11 +1273,14 @@ const styles = StyleSheet.create({
   },
   playerHeaderCell: {
     flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
     borderRightWidth: 1,
     borderRightColor: '#000',
     paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   playerNameInput: {
     fontSize: 11,
@@ -1284,8 +1288,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     width: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
     minHeight: 30,
     paddingVertical: 6,
+    outlineWidth: 0,
+    outlineColor: 'transparent',
+    borderWidth: 0,
   },
   tableRow: {
     flexDirection: 'row',
@@ -1294,6 +1303,8 @@ const styles = StyleSheet.create({
   },
   scoreCell: {
     flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
     borderRightWidth: 1,
@@ -1301,10 +1312,15 @@ const styles = StyleSheet.create({
   },
   scoreInput: {
     width: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
     height: 38,
     textAlign: 'center',
     fontSize: 14,
     color: Colors.dark.background,
+    outlineWidth: 0,
+    outlineColor: 'transparent',
+    borderWidth: 0,
   },
   totalSection: {
     backgroundColor: Colors.light.primary,
@@ -1342,33 +1358,44 @@ const styles = StyleSheet.create({
 
   promptBar: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: 12,
     paddingHorizontal: 0,
-    paddingTop: 4,
+    paddingTop: 0,
+    width: '100%',
+    minWidth: 0,
   },
   plusButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: Colors.dark.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   promptInput: {
     flex: 1,
-    minHeight: 46,
+    flexBasis: 0,
+    minWidth: 0,
+    height: 48,
+    maxHeight: 48,
     backgroundColor: '#F5F5F5',
-    borderRadius: 23,
-    paddingHorizontal: 18,
+    borderRadius: 999,
+    paddingHorizontal: 12,
     paddingVertical: 12,
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '400',
+    fontFamily: Fonts.body,
     color: Colors.dark.background,
+    outlineWidth: 0,
+    outlineColor: 'transparent',
+    borderWidth: 0,
   },
   sendButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    flexShrink: 0,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: Colors.light.primary,
     alignItems: 'center',
     justifyContent: 'center',

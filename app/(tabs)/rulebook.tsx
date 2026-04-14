@@ -12,7 +12,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,7 +19,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardTextInput as TextInput } from '@/components/keyboard-text-input';
 import { ThemedView } from '@/components/themed-view';
 import { keyboardVerticalOffsetBelowSiblingHeader } from '@/constants/keyboard';
-import { Colors, Fonts, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { Colors, Fonts, SCREEN_EXTRA_TOP_PADDING, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { useLayoutDimensions } from '@/hooks/use-layout-dimensions';
+import { fetchGamerulesHtml, GAMERULES_GAME_ALIASES, GAMERULES_ORIGIN } from '@/lib/gamerules-fetch';
 import { getGameAssistantConfig, hasCloudLlm, openaiChatCompletions } from '@/lib/game-assistant-llm';
 
 type Message = {
@@ -45,6 +46,69 @@ type RulebookSavedChat = {
   threadGame: string | null;
   updatedAt: number;
 };
+
+/** Shown for general Rook questions; swapped for concrete counters on scoring follow-ups. */
+const ROOK_EDITION_LINE =
+  'Which ranks count as “counters” and how many points each is worth varies by edition—use your deck’s rules or add them in House Rules.';
+
+/** Offline fallback only—do not name 1s or other variant-specific values; website excerpt + House Rules win when present. */
+const ROOK_SCORING_REFERENCE =
+  'Common Rook counter values and worth (when your deck matches this scheme): 5s = 5, 10s = 10, 14s = 10, Rook Bird = 20. For ranks not listed here, follow your deck or add House Rules for this game—do not assume other point values.';
+
+function looksLikeRookScoringQuestion(qLower: string): boolean {
+  return (
+    /\b(worth|points?|value|counter|scoring|how many points)\b/i.test(qLower) ||
+    /\bhow\s+much\b/i.test(qLower) ||
+    /\bwhat\s+are\s+(they|those)\b/i.test(qLower) ||
+    /\b(1s|5s|10s|14s?|rook\s*bird)\b/i.test(qLower) ||
+    /\b(5|10|14)\b/.test(qLower)
+  );
+}
+
+/** Coach lines that ask the user for input; they must not be the only match for short replies like "round 1". */
+function stripTellMeCoachLines(text: string): string {
+  return text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .filter((line) => !/^\s*tell me\b/i.test(line))
+    .join('\n');
+}
+
+function looksLikeShortAnswerFragment(question: string): boolean {
+  const t = question.trim();
+  if (t.length < 1 || t.length > 80) return false;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length > 8) return false;
+  if (/^(yes|no|yep|nope|ok|sure|yeah|nah)\b\.?$/i.test(t)) return true;
+  if (/^round\s*[1-4]\b/i.test(t)) return true;
+  if (/^\d{1,2}$/.test(t)) return true;
+  if (/^(team|player|p)\s*\d+/i.test(t)) return true;
+  if (/^(what|how|why|when|where|who|which|explain|describe|tell|define)\b/i.test(t)) return false;
+  if (/\b(play|rules|explain|meaning|describe|define|summarize|list)\b/i.test(t)) return false;
+  if (words.length <= 4 && t.length <= 28) return true;
+  return false;
+}
+
+function shortAnswerAcknowledgmentLine(
+  question: string,
+  gameKey: string,
+  gameDisplayName: string
+): string {
+  const t = question.trim();
+  const lower = t.toLowerCase();
+  const rm = lower.match(/^round\s*([1-4])\b/);
+  if (rm && gameKey === 'hand-and-foot') {
+    return `Got it — you’re on round ${rm[1]}. Typical focus: build Books from your Hand, then work through your Foot when your rules allow.`;
+  }
+  if (/^(yes|no|yep|nope|ok|sure|yeah|nah)\b\.?$/i.test(t)) {
+    return `Thanks — noted. What should we tackle next for ${gameDisplayName}? (Your cards, a meld you want to lay down, or going out.)`;
+  }
+  if (/^\d{1,2}$/.test(t) && gameKey === 'wizard') {
+    return `Noted. Say who was dealer and what each player bid if you want help filling the score sheet.`;
+  }
+  return `Thanks — I’ve got that. Add what you’re trying to do next for ${gameDisplayName} (cards, melds, or a rule check) and I can help.`;
+}
 
 type RulebookPersistedPayload = {
   draft: { messages: Message[]; threadGame: string | null };
@@ -128,6 +192,9 @@ function expandFollowUpIntentTokens(latestQuestion: string): string[] {
   }
   if (/\bhow\s+many\b/.test(ql)) {
     out.push('number', 'count', 'each', 'per', 'total');
+  }
+  if (/\b(?:worth|how\s+much|points?\s+each|point\s+value|counter\s+value)\b/.test(ql)) {
+    out.push('counter', 'points', 'point', 'value', 'scoring', '5s', '10s', '14', 'bird', 'rook');
   }
   if (/\b(?:who|which)\s+(?:goes|plays|starts|leads)\b/.test(ql)) {
     out.push('first', 'lead', 'dealer', 'turn', 'order');
@@ -334,16 +401,12 @@ const userAskedForRuleSource = (question: string): boolean => {
 
 export default function RulebookScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useLayoutDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const [activeTab, setActiveTab] = useState<Tab>('rulebook');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const PROMPT_INPUT_MAX_HEIGHT = 220;
-  const PROMPT_INPUT_MIN_HEIGHT = 46;
-  const PROMPT_INPUT_LINE_HEIGHT_EST = 22;
-  const [promptInputHeight, setPromptInputHeight] = useState(PROMPT_INPUT_MIN_HEIGHT);
   const [isSending, setIsSending] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pastConversations, setPastConversations] = useState<RulebookSavedChat[]>([]);
@@ -462,13 +525,25 @@ export default function RulebookScreen() {
   const buildLocalFallbackResponse = (
     question: string,
     houseRules: HouseRule[],
-    forcedGameKey?: string
+    forcedGameKey?: string,
+    /** When offline fetch failed but we already resolved the game (e.g. user sent “Skyjo”), avoid asking them to type the name again. */
+    knownLookupGameName?: string,
+    /** Recent user turns so short follow-ups (“what are they worth”) still match scoring lines after “counters”. */
+    allMessagesForMatch?: Message[]
   ) => {
     const q = question.toLowerCase();
 
     const isHowToOverview =
       /\bhow\b.*\bplay\b/i.test(question) || /\bhow to play\b/i.test(question) || /\brules\b/i.test(q);
     const questionOnly = !isHowToOverview;
+
+    const buildQuestionTextForLineMatch = (latestQuestion: string): string => {
+      const userTurns =
+        allMessagesForMatch?.filter((m) => m.isUser && m.text?.trim()).map((m) => m.text!.trim()) ?? [];
+      const merged = (userTurns.length ? userTurns.slice(-3).join(' ') : latestQuestion).trim();
+      const extra = expandFollowUpIntentTokens(latestQuestion).join(' ');
+      return `${merged} ${extra}`.trim();
+    };
 
     const selectRelevantLines = (text: string, questionText: string) => {
       const stop = new Set([
@@ -508,6 +583,11 @@ export default function RulebookScreen() {
         'this',
         'it',
         'its',
+        'they',
+        'them',
+        'their',
+        'those',
+        'these',
       ]);
 
       const keywords = questionText
@@ -516,7 +596,12 @@ export default function RulebookScreen() {
         .split(/\s+/)
         .map((w) => w.trim())
         .filter(Boolean)
-        .filter((w) => w.length >= 3 && !stop.has(w));
+        .filter((w) => {
+          if (stop.has(w)) return false;
+          if (w.length >= 3) return true;
+          if (/^\d+s?$/i.test(w)) return true;
+          return false;
+        });
 
       const lines = text
         .split('\n')
@@ -607,7 +692,7 @@ export default function RulebookScreen() {
         'The highest trump wins the trick.',
         'The Rook Bird is the strongest trump card.',
         'After the hand, teams count the point cards they won.',
-        'Counters: 1s = 15 points. 5s = 5. 10s = 10. 14s = 10. Rook Bird = 20.',
+        ROOK_EDITION_LINE,
         'Teams win by reaching the target score (example: 300) before the other team.',
       ].join('\n'),
     };
@@ -639,7 +724,14 @@ export default function RulebookScreen() {
           );
         })
         : houseRules.filter((hr) => q.includes(hr.gameName.toLowerCase()));
-      const standard = STANDARD_RULES[pickedGame] || '';
+      let standard = STANDARD_RULES[pickedGame] || '';
+      if (pickedGame === 'rook' && questionOnly && looksLikeRookScoringQuestion(q)) {
+        standard = standard.replace(ROOK_EDITION_LINE, ROOK_SCORING_REFERENCE);
+      }
+
+      const shortAnswer = questionOnly && looksLikeShortAnswerFragment(question);
+      const pool = shortAnswer ? stripTellMeCoachLines(standard) : standard;
+      const selectionPool = pool.trim().length > 0 ? pool : standard;
 
       if (matchingHouse.length > 0) {
         const houseSection = [
@@ -654,7 +746,7 @@ export default function RulebookScreen() {
           return formatAsRulebookBullets(`${standard}${houseSection}`, 8);
         }
 
-        const relevantStandard = selectRelevantLines(standard, question);
+        const relevantStandard = selectRelevantLines(selectionPool, buildQuestionTextForLineMatch(question));
         // For follow-ups, only include the most relevant house rule lines.
         const relevantHouseRules = houseSection
           .split('\n')
@@ -666,14 +758,25 @@ export default function RulebookScreen() {
           .slice(0, 3)
           .join('\n');
 
+        const ackLine = shortAnswer
+          ? shortAnswerAcknowledgmentLine(question, pickedGame, standardName)
+          : '';
+
         return formatAsRulebookBullets(
-          [relevantStandard, relevantHouseRules].filter(Boolean).join('\n'),
+          [ackLine, relevantStandard, relevantHouseRules].filter(Boolean).join('\n'),
           7
         );
       }
 
       if (!questionOnly) return formatAsRulebookBullets(standard, 8);
-      return formatAsRulebookBullets(selectRelevantLines(standard, question), 5);
+      const ackLine = shortAnswer
+        ? shortAnswerAcknowledgmentLine(question, pickedGame, standardName)
+        : '';
+      const relevantStandard = selectRelevantLines(selectionPool, buildQuestionTextForLineMatch(question));
+      return formatAsRulebookBullets(
+        [ackLine, relevantStandard].filter(Boolean).join('\n'),
+        shortAnswer ? 7 : 5
+      );
     }
 
     // If they included a game name that doesn’t match our known alias list, fall back to showing the
@@ -698,11 +801,20 @@ export default function RulebookScreen() {
     // Generic help message: without an AI model/key we can only reliably answer
     // either (a) games we have standard rules for above, or (b) games where you
     // entered House Rules in this app.
+    const known = knownLookupGameName?.trim();
+    if (known && known.length >= 2) {
+      return formatAsRulebookBullets(
+        [
+          `I couldn’t find a rules page for ${known} just now.`,
+          `Add House Rules for ${known} in this app so I can answer using how your group plays.`,
+        ].join('\n'),
+        5
+      );
+    }
     return formatAsRulebookBullets(
       [
-        'I can help, but I couldn’t pull public rules for that game automatically.',
-        'Ask again with just the game name (example: “Skyjo”).',
-        'Or add House Rules in this app with the same name so answers match your table.',
+        'Name the game you mean (for example “Skyjo” or “How do I play Skyjo?”).',
+        'Or add House Rules in this app for that game so answers match your table.',
       ].join('\n'),
       5
     );
@@ -920,8 +1032,6 @@ export default function RulebookScreen() {
     return stemmed.length > 0 ? stemmed : sentences;
   };
 
-  const GAMERULES_ORIGIN = 'https://gamerules.com';
-
   /** Walk nested divs after `<div class="entry-content"…>` to get main article HTML. */
   const extractEntryContentInnerHtml = (fullHtml: string): string => {
     const lower = fullHtml.toLowerCase();
@@ -953,20 +1063,22 @@ export default function RulebookScreen() {
       const q = searchQuery.trim();
       if (!q) return [];
       const searchUrl = `${GAMERULES_ORIGIN}/?s=${encodeURIComponent(q)}`;
-      const res = await fetch(searchUrl);
-      if (!res.ok) return [];
-      const html = await res.text();
-      const re = /href=["'](https:\/\/gamerules\.com\/rules\/[^"'\s#]+)["']/gi;
+      const html = await fetchGamerulesHtml(searchUrl);
+      if (!html) return [];
       const seen = new Set<string>();
       const out: string[] = [];
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(html)) !== null) {
-        const u = m[1].replace(/\/$/, '');
+      const add = (raw: string) => {
+        const u = raw.replace(/\/$/, '');
         if (!seen.has(u)) {
           seen.add(u);
           out.push(u);
         }
-      }
+      };
+      let m: RegExpExecArray | null;
+      const abs = /href=["'](https:\/\/gamerules\.com\/rules\/[^"'\s#]+)["']/gi;
+      while ((m = abs.exec(html)) !== null) add(m[1]);
+      const rel = /href=["'](\/rules\/[^"'\s#]+)["']/gi;
+      while ((m = rel.exec(html)) !== null) add(`${GAMERULES_ORIGIN}${m[1]}`);
       return out;
     } catch {
       return [];
@@ -975,11 +1087,17 @@ export default function RulebookScreen() {
 
   const pickBestGameRulesUrl = (urls: string[], gameName: string): string | null => {
     if (urls.length === 0) return null;
-    const tokens = gameName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .split(/\s+/)
-      .filter((t) => t.length >= 2);
+    const key = gameName.toLowerCase().trim();
+    const alias = GAMERULES_GAME_ALIASES[key];
+    const extra = alias?.slugKeywords ?? [];
+    const tokens = [
+      ...gameName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .split(/\s+/)
+        .filter((t) => t.length >= 2),
+      ...extra,
+    ];
     if (tokens.length === 0) return urls[0];
     let best = urls[0];
     let bestScore = -1;
@@ -987,7 +1105,7 @@ export default function RulebookScreen() {
       const slug = (u.split('/').filter(Boolean).pop() ?? '').toLowerCase();
       let score = 0;
       for (const t of tokens) {
-        if (slug.includes(t)) score += 3;
+        if (t.length >= 2 && slug.includes(t)) score += 3;
       }
       if (score > bestScore) {
         bestScore = score;
@@ -999,9 +1117,8 @@ export default function RulebookScreen() {
 
   const fetchGameRulesArticlePage = async (pageUrl: string): Promise<GameRulesCachedPage | null> => {
     try {
-      const res = await fetch(pageUrl);
-      if (!res.ok) return null;
-      const html = await res.text();
+      const html = await fetchGamerulesHtml(pageUrl);
+      if (!html) return null;
       const titleMatch = html.match(/<h1[^>]*class="[^"]*entry-title[^"]*"[^>]*>([\s\S]*?)<\/h1>/i);
       let title = titleMatch
         ? stripHtml(titleMatch[1]).trim()
@@ -1021,10 +1138,15 @@ export default function RulebookScreen() {
   };
 
   const fetchGameRulesComOverview = async (gameName: string): Promise<GameRulesCachedPage | null> => {
-    const queries = [...new Set([gameName, `${gameName} rules`, `${gameName} card game`].map((s) => s.trim()))].filter(
-      (s) => s.length >= 2
-    );
-    for (const q of queries.slice(0, 3)) {
+    const key = gameName.trim().toLowerCase();
+    const alias = GAMERULES_GAME_ALIASES[key];
+    const extraQueries = alias?.queries ?? [];
+    const queries = [
+      ...new Set(
+        [gameName, `${gameName} rules`, `${gameName} card game`, ...extraQueries].map((s) => s.trim())
+      ),
+    ].filter((s) => s.length >= 2);
+    for (const q of queries.slice(0, 8)) {
       // eslint-disable-next-line no-await-in-loop
       const urls = await searchGameRulesRuleUrls(q);
       if (urls.length === 0) continue;
@@ -1034,6 +1156,37 @@ export default function RulebookScreen() {
       const page = await fetchGameRulesArticlePage(best);
       if (page && stripHtml(page.innerHtml).replace(/\s+/g, ' ').trim().length >= 60) {
         return page;
+      }
+    }
+
+    // Search pages can occasionally miss obvious matches. Try direct /rules/<slug> URLs.
+    const slugCandidates = new Set<string>();
+    const addSlug = (s: string) => {
+      const slug = s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .trim();
+      if (slug.length >= 2) slugCandidates.add(slug);
+    };
+    addSlug(gameName);
+    const inferredBare = extractGameNameFromQuestion(gameName);
+    if (inferredBare) addSlug(inferredBare);
+    const cleaned = gameName
+      .toLowerCase()
+      .replace(/\b(how\s+do\s+i\s+play|how\s+to\s+play|rules?\s+for|rules?)\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (cleaned) addSlug(cleaned);
+    const words = cleaned.split(/\s+/).filter(Boolean);
+    if (words.length >= 1) addSlug(words[words.length - 1]);
+
+    for (const slug of slugCandidates) {
+      const directUrl = `${GAMERULES_ORIGIN}/rules/${slug}`;
+      // eslint-disable-next-line no-await-in-loop
+      const direct = await fetchGameRulesArticlePage(directUrl);
+      if (direct && stripHtml(direct.innerHtml).replace(/\s+/g, ' ').trim().length >= 60) {
+        return direct;
       }
     }
     return null;
@@ -1199,7 +1352,7 @@ export default function RulebookScreen() {
       return new RegExp(`\\b${escapeRegExp(hn)}\\b`, 'i').test(q);
     });
     if (mentionedHouseRule) {
-      return buildLocalFallbackResponse(question, houseRules);
+      return buildLocalFallbackResponse(question, houseRules, undefined, undefined, allMessages);
     }
 
     // 2) If we have built-in simplified rules for the game, use those.
@@ -1215,20 +1368,20 @@ export default function RulebookScreen() {
       g.aliases.some((a) => new RegExp(`\\b${escapeRegExp(a)}\\b`, 'i').test(q))
     )?.key;
     if (pickedGame) {
-      return buildLocalFallbackResponse(question, houseRules);
+      return buildLocalFallbackResponse(question, houseRules, undefined, undefined, allMessages);
     }
 
     // 3) Infer game from this message or earlier user turns (follow-ups).
     const lookupGameName = resolveLookupGameName(question, allMessages);
 
     if (!lookupGameName) {
-      return buildLocalFallbackResponse(question, houseRules);
+      return buildLocalFallbackResponse(question, houseRules, undefined, undefined, allMessages);
     }
 
     // Built-in games: local summaries (including on follow-ups).
     const forcedGameKey = inferStandardGameKeyFromName(lookupGameName);
     if (forcedGameKey) {
-      return buildLocalFallbackResponse(question, houseRules, forcedGameKey);
+      return buildLocalFallbackResponse(question, houseRules, forcedGameKey, undefined, allMessages);
     }
 
     // GameRules.com: cache by normalized game lookup string.
@@ -1366,7 +1519,7 @@ export default function RulebookScreen() {
     }
 
     // 4) Final fallback (no AI key): tell the user what we can do.
-    return buildLocalFallbackResponse(question, houseRules);
+    return buildLocalFallbackResponse(question, houseRules, undefined, lookupGameName, allMessages);
   };
 
   const getOpenAIResponse = async ({
@@ -1401,15 +1554,23 @@ export default function RulebookScreen() {
         const cap = 3200;
         gameRulesReferenceBlock = [
           '---',
-          `GameRules.com article for this thread: “${grPage.title}”. Use for factual rule answers and follow-ups about the same game.`,
-          'Reference text is section-filtered: Overview/intro is omitted unless the user asked for history, background, or an overview. “How to play” questions start at the site’s How to Play section.',
+          `Rule reference for this thread: “${grPage.title}”. Use for factual answers and follow-ups about the same game.`,
+          'Reference text is section-filtered: Overview/intro is omitted unless the user asked for history, background, or an overview. “How to play” questions start at the How to Play section of the reference.',
           oneLine.length > cap ? `${oneLine.slice(0, cap)}…` : oneLine,
           `Prefer sentences that match the user’s latest message (follow-up: ${isFollowUpThread ? 'yes' : 'no'}). Ignore unrelated sections. House rules override conflicts.`,
-          `Do not include URLs, “Source:”, or the site name in your answer unless the user asked where the information came from; then give one short bullet with: ${grPage.url}`,
+          `Do not include URLs, “Source:”, or website names in your answer unless the user asked where the information came from; then give one short bullet with: ${grPage.url}`,
           '---',
         ].join('\n');
       }
     }
+
+    const threadGameWithoutExcerpt =
+      lookupGameName &&
+      lookupGameName.trim().length >= 2 &&
+      !inferStandardGameKeyFromName(lookupGameName) &&
+      !gameRulesReferenceBlock.trim()
+        ? `Thread game: ${lookupGameName.trim()}. No rule article was loaded (offline, blocked request, or no matching page). Answer from general knowledge; say variants may differ. If the user only sent the game name, give a short how-to-play overview.`
+        : '';
 
     const isHowToOverview =
       /\bhow\b.*\bplay\b/i.test(question) || /\bhow to play\b/i.test(question) || /\brules\b/i.test(question);
@@ -1549,12 +1710,16 @@ export default function RulebookScreen() {
       'Do NOT restate the question.',
       'Never add “Source:”, links, or website names unless the user explicitly asks where you got the information.',
       'Use house rules when they apply; they override public rule summaries.',
-      'Public rule text may appear below from GameRules.com; use it for facts and for follow-up questions about the same game.',
+      'Public rule text may appear in the reference block below; use it for facts and for follow-up questions about the same game.',
       'That excerpt skips Overview/background unless the user asked for history or an overview. For “how to play,” it starts at How to Play—do not invent or lean on cut background text.',
       'For score sheet design: suggest concrete row names and how many players; say they can build it in the app’s Scoring → Custom sheet chat.',
       'If you need one missing detail, ask ONE short bullet that is a single question (then stop).',
       'If house rules apply, name them once in a bullet, then answer in the next bullets.',
       'If the user follows up without naming a new game, treat it as the same game as earlier user messages—never substitute a different game’s goal or how-to-play.',
+      'On short follow-up questions (scoring, turn order, one card), answer that topic directly—do not repeat the whole prior reply.',
+      'If the user’s latest message is a short reply (e.g. “round 1”, “yes”, a number), treat it as their answer to your previous message—acknowledge it and give the next useful step. Do not repeat the same “Tell me…” prompt you already sent.',
+      'For Rook: scoring must come from (1) House Rules above when the game name matches this thread, or (2) the rule reference excerpt below when present. Do not invent or recall point values from memory—especially do not mention 1s as 15 (or any value for 1s) unless that exact text appears in House Rules or in the excerpt. If neither source lists a rank, say to check the deck or add House Rules.',
+      'If the user asks what “they” or “those” are worth (or “how much”) right after counters or scoring was discussed, answer with counter/point values from those sources—not a generic “count points at the end” line unless that is what they asked.',
       ...(isFollowUpThread
         ? [
           'This is a follow-up. The user’s latest message is the only question you must answer.',
@@ -1563,6 +1728,7 @@ export default function RulebookScreen() {
           'Reply with the fewest bullets that fully answer the latest message (often 2–4). Skip side topics.',
         ]
         : []),
+      threadGameWithoutExcerpt,
       houseRulesContext,
       gameRulesReferenceBlock,
     ]
@@ -1685,7 +1851,22 @@ export default function RulebookScreen() {
       };
       setMessages((prev) => [...prev, aiResponse]);
     } catch (error) {
-      const fallback = buildLocalFallbackResponse(userMessage.text, houseRules);
+      let fallback = '';
+      try {
+        // If cloud/proxy fails (e.g. quota), still use the richer offline path:
+        // built-ins + House Rules + GameRules.com extraction when available.
+        fallback = await getOfflineAnswer(userMessage.text, userMessage.imageUri, nextMessages);
+      } catch {
+        const lookupName = resolveLookupGameName(userMessage.text, nextMessages);
+        const forcedKey = lookupName ? inferStandardGameKeyFromName(lookupName) ?? undefined : undefined;
+        fallback = buildLocalFallbackResponse(
+          userMessage.text,
+          houseRules,
+          forcedKey,
+          lookupName ?? undefined,
+          nextMessages
+        );
+      }
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         text: fallback,
@@ -1793,24 +1974,28 @@ export default function RulebookScreen() {
     if (!editingRuleId) return;
     const idToDelete = editingRuleId;
     const gameLabel = newGameName.trim() || 'this game';
-    Alert.alert(
-      'Delete house rules',
-      `Remove all house rules for "${gameLabel}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setHouseRules((prev) => prev.filter((hr) => hr.id !== idToDelete));
-            setEditingRuleId(null);
-            setNewGameName('');
-            setNewRules(['']);
-            setShowAddRuleModal(false);
-          },
-        },
-      ]
-    );
+    const message = `Remove all house rules for "${gameLabel}"?`;
+
+    const performDelete = () => {
+      setHouseRules((prev) => prev.filter((hr) => hr.id !== idToDelete));
+      setEditingRuleId(null);
+      setNewGameName('');
+      setNewRules(['']);
+      setShowAddRuleModal(false);
+    };
+
+    // Alert.alert does not surface a usable dialog on React Native Web; use window.confirm.
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(`Delete house rules\n\n${message}`)) {
+        performDelete();
+      }
+      return;
+    }
+
+    Alert.alert('Delete house rules', message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: performDelete },
+    ]);
   };
 
   const updateRule = (index: number, text: string) => {
@@ -1874,7 +2059,7 @@ export default function RulebookScreen() {
   };
 
   return (
-    <ThemedView style={[styles.screen, { paddingTop: insets.top }]}>
+    <ThemedView style={[styles.screen, { paddingTop: insets.top + SCREEN_EXTRA_TOP_PADDING }]}>
       {/* Header */}
       <View style={styles.header}>
         {activeTab === 'rulebook' ? (
@@ -2003,38 +2188,20 @@ export default function RulebookScreen() {
             )}
 
             {/* Input Area */}
-            <View style={[styles.inputContainer, { paddingBottom: Math.max(0, insets.bottom - 6) }]}>
+            <View
+              style={[
+                styles.inputContainer,
+                { paddingBottom: Math.max(insets.bottom, 8) + 14 },
+              ]}>
               <TextInput
-                style={[styles.textInput, { minHeight: promptInputHeight }]}
+                style={styles.textInput}
                 placeholder="Write here"
                 placeholderTextColor="#999"
                 value={inputText}
-                onChangeText={(t) => {
-                  setInputText(t);
-
-                  // contentSize sometimes doesn't shrink right away.
-                  // Estimate height from newlines.
-                  const trimmedEnd = t.replace(/\n+$/g, '');
-                  const lineCount = trimmedEnd.length === 0 ? 1 : trimmedEnd.split('\n').length;
-                  const estimated =
-                    PROMPT_INPUT_MIN_HEIGHT + (lineCount - 1) * PROMPT_INPUT_LINE_HEIGHT_EST;
-                  const clamped = Math.max(
-                    PROMPT_INPUT_MIN_HEIGHT,
-                    Math.min(PROMPT_INPUT_MAX_HEIGHT, estimated)
-                  );
-                  setPromptInputHeight((prev) => (clamped < prev ? clamped : prev));
-                }}
+                onChangeText={setInputText}
                 multiline
                 textAlignVertical="top"
-                scrollEnabled={promptInputHeight >= PROMPT_INPUT_MAX_HEIGHT}
-                onContentSizeChange={(e) => {
-                  const h = e.nativeEvent.contentSize.height;
-                  const clamped = Math.max(
-                    PROMPT_INPUT_MIN_HEIGHT,
-                    Math.min(PROMPT_INPUT_MAX_HEIGHT, h)
-                  );
-                  setPromptInputHeight(clamped);
-                }}
+                scrollEnabled
                 returnKeyType="send"
                 onSubmitEditing={handleSend}
                 blurOnSubmit
@@ -2099,7 +2266,7 @@ export default function RulebookScreen() {
         <View
           style={[
             styles.modalOverlay,
-            { top: insets.top + 80 },
+            { top: insets.top + SCREEN_EXTRA_TOP_PADDING + 80 },
           ]}>
           <View style={[styles.modalContent, isTablet && styles.modalContentTablet]}>
             <View style={styles.modalTitleRow}>
@@ -2312,7 +2479,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.gameTitle,
     fontSize: 24,
     color: Colors.dark.background,
-    fontWeight: '600',
+    fontWeight: '400',
   },
   emptySubText: {
     fontSize: 12,
@@ -2382,11 +2549,13 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     paddingHorizontal: 0,
     paddingTop: 6,
     paddingBottom: 0,
     gap: 12,
+    width: '100%',
+    minWidth: 0,
   },
   plusButton: {
     width: 44,
@@ -2402,24 +2571,31 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    height: 48,
+    maxHeight: 48,
     backgroundColor: '#F5F5F5',
-    borderRadius: 23,
-    paddingHorizontal: 18,
+    borderRadius: 999,
+    paddingHorizontal: 12,
     paddingVertical: 12,
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '400',
+    fontFamily: Fonts.body,
     color: Colors.dark.background,
   },
   sendButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    flexShrink: 0,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: Colors.light.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendIcon: {
-    width: 20,
-    height: 20,
+    width: 18,
+    height: 18,
   },
   houseRulesContainer: {
     flex: 1,

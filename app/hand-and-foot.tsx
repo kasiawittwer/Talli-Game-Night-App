@@ -9,19 +9,20 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { KeyboardTextInput as TextInput } from '@/components/keyboard-text-input';
 import { iosKeyboardOffsetWithSafeTop } from '@/constants/keyboard';
+import { SCORE_SHEET_NAME_MAX_LENGTH } from '@/constants/score-sheet-input';
 import {
   SCORE_SHEET_PAGE_COLUMN,
   SCORE_SHEET_PAGE_COLUMN_TABLET,
   SCORE_SHEET_SCROLL_CONTENT,
 } from '@/constants/score-sheet-layout';
-import { Colors, Fonts, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { Colors, Fonts, SCREEN_EXTRA_TOP_PADDING, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { useLayoutDimensions } from '@/hooks/use-layout-dimensions';
 import { useFavorites } from '@/context/favorites-context';
 import { useActiveGames } from '@/context/active-games-context';
 import { ScoreSheetBottomNav } from '@/components/ui/score-sheet-bottom-nav';
@@ -53,7 +54,7 @@ function parseNum(s: string) {
 
 export default function HandAndFootScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useLayoutDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const router = useRouter();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -297,7 +298,7 @@ export default function HandAndFootScreen() {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={[styles.screen, { paddingTop: insets.top + SCREEN_EXTRA_TOP_PADDING }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -368,6 +369,7 @@ export default function HandAndFootScreen() {
                     });
                   }}
                   textAlign="center"
+                  maxLength={SCORE_SHEET_NAME_MAX_LENGTH}
                 />
               </View>
             ))}
@@ -695,13 +697,20 @@ const styles = StyleSheet.create({
   },
   teamHeaderCell: {
     flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 8,
+    paddingHorizontal: 4,
     borderRightWidth: 1,
     borderRightColor: '#9E9E9E',
   },
   teamHeaderInput: {
+    width: '100%',
+    minWidth: 0,
+    alignSelf: 'stretch',
+    overflow: 'hidden',
     fontSize: 13,
     fontWeight: '600',
     color: Colors.dark.background,
@@ -761,6 +770,8 @@ const styles = StyleSheet.create({
   },
   valueCell: {
     flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
     justifyContent: 'center',
     paddingHorizontal: 6,
   },
@@ -770,6 +781,8 @@ const styles = StyleSheet.create({
   },
   cellInput: {
     width: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
     color: Colors.dark.background,
     fontSize: 14,
     fontWeight: '600',

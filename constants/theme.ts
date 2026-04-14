@@ -37,3 +37,6 @@ export const Fonts = {
 
 /** Width at which we use iPad-style layout (portrait iPad and large tablets). */
 export const TABLET_MIN_WIDTH = 768;
+
+/** Extra space below the status bar / safe area on all main screens (breathing room). */
+export const SCREEN_EXTRA_TOP_PADDING = 10;

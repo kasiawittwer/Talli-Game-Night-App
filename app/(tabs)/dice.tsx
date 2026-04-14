@@ -1,28 +1,21 @@
 import { Image } from 'expo-image';
-import { useRef, useState } from 'react';
-import {
-  Animated,
-  Dimensions,
-  Easing,
-  LayoutChangeEvent,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { runOnJS } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { HorizontalPager } from '@/components/ui/horizontal-pager';
+import { Colors, Fonts, SCREEN_EXTRA_TOP_PADDING, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { useLayoutDimensions } from '@/hooks/use-layout-dimensions';
 
 type DicePage = 0 | 1 | 2;
 
 export default function DiceScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useLayoutDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const dieSize = isTablet ? 300 : 200;
   const pipGridSize = Math.round((dieSize * 120) / 180);
@@ -31,9 +24,7 @@ export default function DiceScreen() {
   const alphaDieSize = isTablet ? 320 : 220;
   const alphaLetterSize = isTablet ? 100 : 72;
 
-  const scrollRef = useRef<ScrollView | null>(null);
   const [pageIndex, setPageIndex] = useState<DicePage>(0);
-  const [pageWidth, setPageWidth] = useState(() => Dimensions.get('window').width);
 
   const [singleDie, setSingleDie] = useState(1);
   const [pairDice, setPairDice] = useState<[number, number]>([1, 1]);
@@ -46,6 +37,7 @@ export default function DiceScreen() {
   const pairRotation1 = useRef(new Animated.Value(0)).current;
   const pairScale1 = useRef(new Animated.Value(1)).current;
   const rollAnimRunning = useRef<Animated.CompositeAnimation | null>(null);
+  const rollRef = useRef<() => void>(() => {});
 
   const playPairDiceAnimation = () => {
     pairRotation0.setValue(0);
@@ -173,16 +165,6 @@ export default function DiceScreen() {
     transform: [{ rotate: pairSpin1 }, { scale: pairScale1 }],
   };
 
-  const onScrollViewLayout = (e: LayoutChangeEvent) => {
-    setPageWidth(e.nativeEvent.layout.width);
-  };
-
-  const handleScrollEnd = (e: any) => {
-    const { contentOffset, layoutMeasurement } = e.nativeEvent;
-    const index = Math.round(contentOffset.x / layoutMeasurement.width) as DicePage;
-    setPageIndex(index);
-  };
-
   const roll = () => {
     playRollAnimation();
     if (pageIndex === 0) {
@@ -199,6 +181,20 @@ export default function DiceScreen() {
     }
   };
 
+  rollRef.current = roll;
+
+  // Full-screen `Pressable` blocks the native pager / web scroll from seeing horizontal pans.
+  // Tap-to-roll uses a tap gesture so swipes still reach HorizontalPager.
+  const tapToRoll = useMemo(
+    () =>
+      Gesture.Tap().onEnd(() => {
+        runOnJS(() => {
+          rollRef.current();
+        })();
+      }),
+    []
+  );
+
   const dieSquareStyle = {
     width: dieSize,
     height: dieSize,
@@ -206,30 +202,31 @@ export default function DiceScreen() {
   };
 
   return (
-    <ThemedView style={[styles.screen, isTablet && styles.screenTablet, { paddingTop: insets.top }]}>
-      <View style={[styles.contentColumn, isTablet && styles.contentColumnTablet]}>
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onLayout={onScrollViewLayout}
-          onMomentumScrollEnd={handleScrollEnd}
-          style={styles.scrollView}>
+    <ThemedView style={[styles.screen, isTablet && styles.screenTablet, { paddingTop: insets.top + SCREEN_EXTRA_TOP_PADDING }]}>
+      <View
+        style={[
+          styles.contentColumn,
+          isTablet && styles.contentColumnTablet,
+          Platform.OS === 'web' && styles.contentColumnWeb,
+        ]}>
+        <HorizontalPager
+          style={styles.scrollView}
+          pageIndex={pageIndex}
+          onPageIndexChange={(i) => setPageIndex(i as DicePage)}>
           {/* Dice 1: single six-sided die (blue) */}
-          <View style={[styles.page, { width: pageWidth }]}>
-            <Pressable onPress={roll} hitSlop={12}>
+          <GestureDetector gesture={tapToRoll}>
+            <View style={styles.page}>
               <Animated.View style={rollAnimStyle}>
                 <View style={[styles.dieSquare, dieSquareStyle, { backgroundColor: Colors.light.secondary }]}>
                   <Pips value={singleDie} pipGridSize={pipGridSize} pipDotSize={pipDotSize} />
                 </View>
               </Animated.View>
-            </Pressable>
-          </View>
+            </View>
+          </GestureDetector>
 
           {/* Dice 2: two six-sided dice (yellow + blue) — each die animates on its own pivot */}
-          <View style={[styles.page, { width: pageWidth }]}>
-            <Pressable onPress={roll} hitSlop={12}>
+          <GestureDetector gesture={tapToRoll}>
+            <View style={styles.page}>
               <View style={[styles.twoDiceColumn, isTablet && styles.twoDiceColumnTablet]}>
                 <Animated.View style={pairAnimStyle0}>
                   <View style={[styles.dieSquare, dieSquareStyle, { backgroundColor: Colors.light.accent }]}>
@@ -242,12 +239,12 @@ export default function DiceScreen() {
                   </View>
                 </Animated.View>
               </View>
-            </Pressable>
-          </View>
+            </View>
+          </GestureDetector>
 
           {/* Dice 3: alphabet die */}
-          <View style={[styles.page, { width: pageWidth }]}>
-            <Pressable onPress={roll} hitSlop={12}>
+          <GestureDetector gesture={tapToRoll}>
+            <View style={styles.page}>
               <View style={styles.alphaWrapper}>
                 <Animated.View
                   style={[
@@ -263,30 +260,48 @@ export default function DiceScreen() {
                   <Text style={[styles.alphaLetter, { fontSize: alphaLetterSize }]}>{alphaDie}</Text>
                 </Animated.View>
               </View>
-            </Pressable>
-          </View>
-        </ScrollView>
+            </View>
+          </GestureDetector>
+        </HorizontalPager>
 
         <View style={[styles.bottomSection, isTablet && styles.bottomSectionTablet]}>
           <View style={[styles.dotsRow, isTablet && styles.dotsRowTablet]}>
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: pageIndex === 0 ? Colors.light.primary : '#D0D0D0' },
-              ]}
-            />
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: pageIndex === 1 ? Colors.light.primary : '#D0D0D0' },
-              ]}
-            />
-            <View
-              style={[
-                styles.dot,
-                { backgroundColor: pageIndex === 2 ? Colors.light.primary : '#D0D0D0' },
-              ]}
-            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Single die"
+              hitSlop={10}
+              onPress={() => setPageIndex(0)}>
+              <View
+                style={[
+                  styles.dot,
+                  { backgroundColor: pageIndex === 0 ? Colors.light.primary : '#D0D0D0' },
+                ]}
+              />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Pair of dice"
+              hitSlop={10}
+              onPress={() => setPageIndex(1)}>
+              <View
+                style={[
+                  styles.dot,
+                  { backgroundColor: pageIndex === 1 ? Colors.light.primary : '#D0D0D0' },
+                ]}
+              />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Alphabet die"
+              hitSlop={10}
+              onPress={() => setPageIndex(2)}>
+              <View
+                style={[
+                  styles.dot,
+                  { backgroundColor: pageIndex === 2 ? Colors.light.primary : '#D0D0D0' },
+                ]}
+              />
+            </Pressable>
           </View>
 
           <View style={styles.rollRow}>
@@ -352,6 +367,10 @@ const styles = StyleSheet.create({
   contentColumn: {
     flex: 1,
     width: '100%',
+  },
+  contentColumnWeb: {
+    minHeight: 0,
+    overflow: 'hidden',
   },
   contentColumnTablet: {
     maxWidth: 900,

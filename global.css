@@ -1,0 +1,54 @@
+/**
+ * Web shell: lock the document to the viewport so the *window* never shows scrollbars.
+ * Matches Expo / RN Web guidance: scrolling happens inside ScrollViews, not on body.
+ * (We only hid overflow-x before; vertical overflow still produced a window scrollbar.)
+ */
+html {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* HorizontalPager viewport (RN Web): data attr survives RN style merge. */
+[data-rn-pager-viewport='1'] {
+  overflow: hidden !important;
+}
+
+/**
+ * Web-only: RN’s TextInput maps to <input>/<textarea>. Browsers add a UA focus ring; RN’s
+ * styles don’t always override it. Base selector + focus pseudos so dev + export both match.
+ */
+input,
+textarea,
+[role='textbox'],
+[contenteditable='true'] {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+}
+
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+[role='textbox']:focus,
+[role='textbox']:focus-visible,
+[contenteditable='true']:focus,
+[contenteditable='true']:focus-visible {
+  outline: none !important;
+  outline-width: 0 !important;
+  box-shadow: none !important;
+}

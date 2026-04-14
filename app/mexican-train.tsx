@@ -9,19 +9,20 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { KeyboardTextInput as TextInput } from '@/components/keyboard-text-input';
 import { iosKeyboardOffsetWithSafeTop } from '@/constants/keyboard';
+import { SCORE_SHEET_NAME_MAX_LENGTH } from '@/constants/score-sheet-input';
 import {
   SCORE_SHEET_PAGE_COLUMN,
   SCORE_SHEET_PAGE_COLUMN_TABLET,
   SCORE_SHEET_SCROLL_CONTENT,
 } from '@/constants/score-sheet-layout';
-import { Colors, Fonts, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { Colors, Fonts, SCREEN_EXTRA_TOP_PADDING, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { useLayoutDimensions } from '@/hooks/use-layout-dimensions';
 import { useFavorites } from '@/context/favorites-context';
 import { useActiveGames } from '@/context/active-games-context';
 import { ScoreSheetBottomNav } from '@/components/ui/score-sheet-bottom-nav';
@@ -41,7 +42,7 @@ const STORAGE_KEY = '@sheet:mexican-train';
 
 export default function MexicanTrainScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useLayoutDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const router = useRouter();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -219,7 +220,7 @@ export default function MexicanTrainScreen() {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={[styles.screen, { paddingTop: insets.top + SCREEN_EXTRA_TOP_PADDING }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -291,6 +292,8 @@ export default function MexicanTrainScreen() {
                   value={name}
                   onChangeText={(text) => updatePlayerName(index, text)}
                   selectTextOnFocus
+                  textAlign="center"
+                  maxLength={SCORE_SHEET_NAME_MAX_LENGTH}
                 />
               </View>
             ))}
@@ -311,6 +314,7 @@ export default function MexicanTrainScreen() {
                     onChangeText={(text) =>
                       updateScore(roundIndex, playerIndex, text)
                     }
+                    maxLength={6}
                   />
                 </View>
               ))}
@@ -529,6 +533,8 @@ const styles = StyleSheet.create({
   },
   playerCell: {
     flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
     paddingVertical: 6,
     paddingHorizontal: 4,
     borderRightWidth: 1,
@@ -540,6 +546,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.accent,
   },
   playerNameInput: {
+    width: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
     fontSize: 10,
     color: Colors.dark.background,
     textAlign: 'center',
@@ -547,6 +556,8 @@ const styles = StyleSheet.create({
   },
   scoreCell: {
     flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
     paddingVertical: 8,
     paddingHorizontal: 4,
     borderRightWidth: 1,
@@ -559,6 +570,8 @@ const styles = StyleSheet.create({
     color: Colors.dark.background,
     textAlign: 'center',
     width: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
   },
   totalCell: {
     backgroundColor: Colors.light.accent,

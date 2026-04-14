@@ -3,13 +3,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { Colors, Fonts, SCREEN_EXTRA_TOP_PADDING, TABLET_MIN_WIDTH } from '@/constants/theme';
 import { useActiveGames } from '@/context/active-games-context';
 import { useFavorites } from '@/context/favorites-context';
+import { useLayoutDimensions } from '@/hooks/use-layout-dimensions';
 
 type ScoreSheet = {
   id: string;
@@ -34,7 +35,7 @@ const CUSTOM_SHEETS_KEY = '@customSheets';
 
 export default function ScoreSheetsScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useLayoutDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const router = useRouter();
   const { favorites, removeFavoriteById, reconcileFavoritesWithCustomSheets } = useFavorites();
@@ -111,7 +112,7 @@ export default function ScoreSheetsScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           isTablet && styles.scrollContentTablet,
-          { paddingTop: insets.top + 16 },
+          { paddingTop: insets.top + 16 + SCREEN_EXTRA_TOP_PADDING },
         ]}
         showsVerticalScrollIndicator={true}
       >

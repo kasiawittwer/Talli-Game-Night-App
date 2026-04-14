@@ -1,0 +1,22 @@
+# Render Blueprint: deploy the optional API in /server
+# https://render.com/docs/infrastructure-as-code
+#
+# After deploy, set EXPO_PUBLIC_GAME_ASSISTANT_API_URL=https://<your-service>.onrender.com
+# when building the Expo web app (no trailing slash).
+
+services:
+  - type: web
+    name: game-assistant-api
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Set in the Render dashboard (secret) if you use Rulebook chat via /api/openai-proxy
+      - key: OPENAI_API_KEY
+        sync: false

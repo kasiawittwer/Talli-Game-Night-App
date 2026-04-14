@@ -9,7 +9,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,7 +20,8 @@ import {
   SCORE_SHEET_PAGE_COLUMN_TABLET,
   SCORE_SHEET_SCROLL_CONTENT,
 } from '@/constants/score-sheet-layout';
-import { Colors, Fonts, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { Colors, Fonts, SCREEN_EXTRA_TOP_PADDING, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { useLayoutDimensions } from '@/hooks/use-layout-dimensions';
 import { useFavorites } from '@/context/favorites-context';
 import { useActiveGames } from '@/context/active-games-context';
 import { ScoreSheetBottomNav } from '@/components/ui/score-sheet-bottom-nav';
@@ -82,7 +82,7 @@ function DiceDots({ count }: DiceDotsProps) {
 
 export default function YahtzeeScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useLayoutDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const router = useRouter();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -272,7 +272,7 @@ export default function YahtzeeScreen() {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={[styles.screen, { paddingTop: insets.top + SCREEN_EXTRA_TOP_PADDING }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

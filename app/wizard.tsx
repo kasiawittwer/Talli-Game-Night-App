@@ -9,19 +9,20 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { KeyboardTextInput as TextInput } from '@/components/keyboard-text-input';
 import { iosKeyboardOffsetWithSafeTop } from '@/constants/keyboard';
+import { SCORE_SHEET_NAME_MAX_LENGTH } from '@/constants/score-sheet-input';
 import {
   SCORE_SHEET_PAGE_COLUMN,
   SCORE_SHEET_PAGE_COLUMN_TABLET,
   SCORE_SHEET_SCROLL_CONTENT,
 } from '@/constants/score-sheet-layout';
-import { Colors, Fonts, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { Colors, Fonts, SCREEN_EXTRA_TOP_PADDING, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { useLayoutDimensions } from '@/hooks/use-layout-dimensions';
 import { useFavorites } from '@/context/favorites-context';
 import { useActiveGames } from '@/context/active-games-context';
 import { ScoreSheetBottomNav } from '@/components/ui/score-sheet-bottom-nav';
@@ -41,7 +42,7 @@ const STORAGE_KEY = '@sheet:wizard';
 
 export default function WizardScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useLayoutDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const router = useRouter();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -232,7 +233,7 @@ export default function WizardScreen() {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={[styles.screen, { paddingTop: insets.top + SCREEN_EXTRA_TOP_PADDING }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -310,6 +311,7 @@ export default function WizardScreen() {
                     value={name}
                     onChangeText={(text) => updatePlayerName(idx, text)}
                     textAlign="center"
+                    maxLength={SCORE_SHEET_NAME_MAX_LENGTH}
                   />
                 </View>
               ))}
@@ -566,12 +568,18 @@ const styles = StyleSheet.create({
   },
   playerHeaderCell: {
     width: 100,
+    minWidth: 0,
+    overflow: 'hidden',
     backgroundColor: Colors.light.secondary,
     borderRightWidth: 1,
     borderRightColor: '#000',
     paddingVertical: 8,
+    paddingHorizontal: 2,
   },
   playerNameInput: {
+    width: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
     fontSize: 11,
     fontWeight: '500',
     color: Colors.dark.background,
@@ -597,6 +605,8 @@ const styles = StyleSheet.create({
   },
   playerScoreCell: {
     width: 100,
+    minWidth: 0,
+    overflow: 'hidden',
     flexDirection: 'row',
     borderRightWidth: 1,
     borderRightColor: '#000',
@@ -621,6 +631,8 @@ const styles = StyleSheet.create({
   },
   scoreCell: {
     flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
     borderRightWidth: 1,
@@ -629,6 +641,8 @@ const styles = StyleSheet.create({
   },
   scoreCellInput: {
     width: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
     height: 24,
     textAlign: 'center',
     fontSize: 12,
@@ -649,6 +663,8 @@ const styles = StyleSheet.create({
   },
   stackedCellInput: {
     width: '100%',
+    minWidth: 0,
+    overflow: 'hidden',
     height: '100%',
     textAlign: 'center',
     fontSize: 10,

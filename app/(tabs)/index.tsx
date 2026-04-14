@@ -2,19 +2,20 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { Colors, SCREEN_EXTRA_TOP_PADDING, TABLET_MIN_WIDTH } from '@/constants/theme';
 import { useActiveGames } from '@/context/active-games-context';
 import { useFavorites } from '@/context/favorites-context';
+import { useLayoutDimensions } from '@/hooks/use-layout-dimensions';
 
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useLayoutDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const router = useRouter();
   const { favorites, reconcileFavoritesWithCustomSheets } = useFavorites();
@@ -59,7 +60,7 @@ export default function HomeScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           isTablet && styles.scrollContentTablet,
-          { paddingTop: insets.top + 16 },
+          { paddingTop: insets.top + 16 + SCREEN_EXTRA_TOP_PADDING },
         ]}>
         <View style={styles.logoWrapper}>
           <Image

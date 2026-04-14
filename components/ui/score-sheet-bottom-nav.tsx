@@ -1,7 +1,9 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+
+import { useLayoutDimensions } from '@/hooks/use-layout-dimensions';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, TABLET_MIN_WIDTH } from '@/constants/theme';
@@ -24,7 +26,7 @@ const LABELS: Record<string, string> = {
 
 export function ScoreSheetBottomNav() {
   const router = useRouter();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useLayoutDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
 
   const withNoAnimation = (href: string) => {

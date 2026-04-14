@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 export type ActiveGame = {
   id: string;
@@ -46,7 +46,7 @@ export function ActiveGamesProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const upsertActiveGame = (game: Omit<ActiveGame, 'updatedAt'>) => {
+  const upsertActiveGame = useCallback((game: Omit<ActiveGame, 'updatedAt'>) => {
     setActiveGames((prev) => {
       const existingIndex = prev.findIndex((g) => g.id === game.id);
       const updated: ActiveGame[] = [...prev];
@@ -61,15 +61,15 @@ export function ActiveGamesProvider({ children }: { children: ReactNode }) {
       void saveActiveGames(updated);
       return updated;
     });
-  };
+  }, []);
 
-  const clearActiveGame = (id: string) => {
+  const clearActiveGame = useCallback((id: string) => {
     setActiveGames((prev) => {
       const updated = prev.filter((g) => g.id !== id);
       void saveActiveGames(updated);
       return updated;
     });
-  };
+  }, []);
 
   return (
     <ActiveGamesContext.Provider value={{ activeGames, upsertActiveGame, clearActiveGame }}>

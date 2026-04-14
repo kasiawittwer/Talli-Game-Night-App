@@ -1,20 +1,14 @@
 import { Image } from 'expo-image';
-import { useEffect, useRef, useState } from 'react';
-import {
-  LayoutChangeEvent,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
+import { HorizontalPager } from '@/components/ui/horizontal-pager';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { Colors, SCREEN_EXTRA_TOP_PADDING, TABLET_MIN_WIDTH } from '@/constants/theme';
+import { useLayoutDimensions } from '@/hooks/use-layout-dimensions';
 
 const CIRCLE_SIZE_PHONE = 260;
 const CIRCLE_SIZE_TABLET = 400;
@@ -25,15 +19,13 @@ type Mode = 'countdown' | 'stopwatch';
 
 export default function TimersScreen() {
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useLayoutDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const circleSize = isTablet ? CIRCLE_SIZE_TABLET : CIRCLE_SIZE_PHONE;
   const strokeWidth = isTablet ? STROKE_TABLET : STROKE_PHONE;
   const radius = (circleSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  const scrollRef = useRef<ScrollView | null>(null);
-  const [pageWidth, setPageWidth] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
 
   const [hours, setHours] = useState(0);
@@ -72,18 +64,6 @@ export default function TimersScreen() {
     setMode(pageIndex === 0 ? 'countdown' : 'stopwatch');
     setIsRunning(false);
   }, [pageIndex]);
-
-  const onLayoutPage = (e: LayoutChangeEvent) => {
-    setPageWidth(e.nativeEvent.layout.width);
-  };
-
-  const handleScrollEnd = (e: any) => {
-    const x = e.nativeEvent.contentOffset.x;
-    if (pageWidth > 0) {
-      const index = Math.round(x / pageWidth);
-      setPageIndex(index);
-    }
-  };
 
   const formatCountdown = () => {
     const total = remainingMs;
@@ -157,17 +137,18 @@ export default function TimersScreen() {
 
   return (
     <ThemedView style={[styles.screen, isTablet && styles.screenTablet]}>
-      <View style={[styles.contentColumn, isTablet && styles.contentColumnTablet]}>
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onLayout={onLayoutPage}
-          onMomentumScrollEnd={handleScrollEnd}
-          contentContainerStyle={{ paddingTop: insets.top + 16 }}>
-          {/* PAGE 1: Countdown timer */}
-          <View style={[styles.page, { width: pageWidth || '100%' }]}>
+      <View
+        style={[
+          styles.contentColumn,
+          isTablet && styles.contentColumnTablet,
+          Platform.OS === 'web' && styles.contentColumnWeb,
+        ]}>
+        <HorizontalPager
+          pageIndex={pageIndex}
+          onPageIndexChange={setPageIndex}
+          style={{ flex: 1, width: '100%' }}>
+          {/* PAGE 1: Countdown timer — safe-area padding only here so stopwatch can center in full height */}
+          <View style={[styles.page, { paddingTop: insets.top + 16 + SCREEN_EXTRA_TOP_PADDING }]}>
             <View style={[styles.timeControlsRow, isTablet && styles.timeControlsRowTablet]}>
               <TimeBlock
                 label="Hours"
@@ -193,7 +174,8 @@ export default function TimersScreen() {
             </View>
 
             <View style={[styles.circleWrapper, isTablet && styles.circleWrapperTablet]}>
-              <Svg width={circleSize} height={circleSize}>
+              {/* Let horizontal swipes pass through to the pager; the ring is display-only. */}
+              <Svg width={circleSize} height={circleSize} pointerEvents="none">
                 <Circle
                   cx={circleSize / 2}
                   cy={circleSize / 2}
@@ -224,28 +206,38 @@ export default function TimersScreen() {
           </View>
 
           {/* PAGE 2: Stopwatch */}
-          <View style={[styles.page, { width: pageWidth || '100%' }]}>
-            <View style={styles.stopwatchCenter}>
-              <Text style={[styles.stopwatchTime, isTablet && styles.stopwatchTimeTablet]}>
-                {formatStopwatch()}
-              </Text>
-            </View>
+          <View style={[styles.page, styles.stopwatchPage, isTablet && styles.stopwatchPageTablet]}>
+            <Text style={[styles.stopwatchTime, isTablet && styles.stopwatchTimeTablet]}>
+              {formatStopwatch()}
+            </Text>
           </View>
-        </ScrollView>
+        </HorizontalPager>
 
         <View style={[styles.dotsRow, isTablet && styles.dotsRowTablet]}>
-          <View
-            style={[
-              styles.dot,
-              { backgroundColor: pageIndex === 0 ? Colors.light.primary : '#D0D0D0' },
-            ]}
-          />
-          <View
-            style={[
-              styles.dot,
-              { backgroundColor: pageIndex === 1 ? Colors.light.primary : '#D0D0D0' },
-            ]}
-          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Countdown timer"
+            hitSlop={10}
+            onPress={() => setPageIndex(0)}>
+            <View
+              style={[
+                styles.dot,
+                { backgroundColor: pageIndex === 0 ? Colors.light.primary : '#D0D0D0' },
+              ]}
+            />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Stopwatch"
+            hitSlop={10}
+            onPress={() => setPageIndex(1)}>
+            <View
+              style={[
+                styles.dot,
+                { backgroundColor: pageIndex === 1 ? Colors.light.primary : '#D0D0D0' },
+              ]}
+            />
+          </Pressable>
         </View>
 
         <View style={styles.bottomButtonsRow}>
@@ -323,6 +315,10 @@ const styles = StyleSheet.create({
   contentColumn: {
     flex: 1,
     width: '100%',
+  },
+  contentColumnWeb: {
+    minHeight: 0,
+    overflow: 'hidden',
   },
   contentColumnTablet: {
     maxWidth: 900,
@@ -425,10 +421,16 @@ const styles = StyleSheet.create({
   circleTimeTablet: {
     fontSize: 58,
   },
-  stopwatchCenter: {
+  stopwatchPage: {
     flex: 1,
-    alignItems: 'center',
+    width: '100%',
     justifyContent: 'center',
+    alignItems: 'center',
+    // Slight optical lift: bottom buttons + tab bar pull the “center” down otherwise.
+    transform: [{ translateY: 24 }],
+  },
+  stopwatchPageTablet: {
+    transform: [{ translateY: 12 }],
   },
   stopwatchTime: {
     fontSize: 52,

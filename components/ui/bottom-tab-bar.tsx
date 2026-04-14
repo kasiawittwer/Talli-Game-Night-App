@@ -1,11 +1,12 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, TABLET_MIN_WIDTH } from '@/constants/theme';
 import { useLastScoreSheet, withNoAnimationHref } from '@/context/last-score-sheet-context';
+import { useLayoutDimensions } from '@/hooks/use-layout-dimensions';
 
 const ICONS: Record<string, any> = {
   rulebook: require('@/assets/icons/rulebook-open.svg'),
@@ -25,7 +26,7 @@ const LABELS: Record<string, string> = {
 
 export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { lastScoreSheetHref } = useLastScoreSheet();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth } = useLayoutDimensions();
   const isTablet = windowWidth >= TABLET_MIN_WIDTH;
   const rawActiveRouteName = state.routes[state.index]?.name;
   const scoreSheetRoutes = [

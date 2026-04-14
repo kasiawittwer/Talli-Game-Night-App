@@ -15,8 +15,21 @@ const SCORE_SHEET_PATHNAMES = new Set([
   '/custom-score-sheet',
 ]);
 
+/**
+ * Expo Router pathnames vary by platform: `/custom-score-sheet` vs `/(tabs)/custom-score-sheet`.
+ * Normalize so we match reliably and build stable `href`s for router.push.
+ */
+function normalizeScoreSheetPathname(pathname: string): string {
+  let p = pathname.trim();
+  if (!p.startsWith('/')) p = `/${p}`;
+  p = p.replace(/\/\([^)]+\)/g, '');
+  p = p.replace(/\/+/g, '/');
+  if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
+  return p || '/';
+}
+
 function pathnameIsScoreSheet(pathname: string): boolean {
-  return SCORE_SHEET_PATHNAMES.has(pathname);
+  return SCORE_SHEET_PATHNAMES.has(normalizeScoreSheetPathname(pathname));
 }
 
 function buildHref(pathname: string, params: Record<string, unknown>): string {
@@ -95,12 +108,13 @@ function LastScoreSheetPathSyncInner() {
   const paramsKey = JSON.stringify(params);
 
   useEffect(() => {
-    if (pathname === '/score-sheets' || pathname.endsWith('/score-sheets')) {
+    const normalized = normalizeScoreSheetPathname(pathname);
+    if (normalized === '/score-sheets' || pathname.endsWith('/score-sheets')) {
       setLastScoreSheetHref(null);
       return;
     }
     if (pathnameIsScoreSheet(pathname)) {
-      setLastScoreSheetHref(buildHref(pathname, params as Record<string, unknown>));
+      setLastScoreSheetHref(buildHref(normalized, params as Record<string, unknown>));
     }
   }, [pathname, paramsKey, params, setLastScoreSheetHref]);
 
