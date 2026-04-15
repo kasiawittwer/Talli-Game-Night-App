@@ -54,7 +54,8 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
     const maxW = Math.max(0, winW - FRAME_PADDING * 2);
     const maxH = Math.max(0, winH - FRAME_PADDING * 2);
     let s = Math.min(1, maxW / oW, maxH / oH);
-    if (!Number.isFinite(s) || s <= 0) s = 1;
+    // Production static exports can transiently report a 0x0 viewport. Never allow a collapsed shell.
+    if (!Number.isFinite(s) || s <= 0.01) s = 1;
     const needsShrink = s < 0.999;
     return { outerW: oW, outerH: oH, scale: s, needsScaleDown: needsShrink };
   }, [viewport.w, viewport.h]);
@@ -68,13 +69,17 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
     height: IPHONE_17_PRO_VIEWPORT.height,
   };
 
+  const safeScale = Number.isFinite(scale) && scale > 0.01 ? scale : 1;
+  const scaledOuterW = Math.max(1, outerW * safeScale);
+  const scaledOuterH = Math.max(1, outerH * safeScale);
+
   const frameShellStyle: ViewStyle = needsScaleDown
     ? ({
         width: outerW,
         height: outerH,
         borderRadius: OUTER_RADIUS,
         // RN Web: non-standard CSS zoom for narrow viewports only.
-        zoom: scale,
+        zoom: safeScale,
       } as ViewStyle)
     : {
         width: outerW,
@@ -84,7 +89,7 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
 
   return (
     <View style={[styles.page as ViewStyle, { minHeight: '100vh' as unknown as number }]}>
-      <View style={[styles.shellClip as ViewStyle, { width: outerW * scale, height: outerH * scale }]}>
+      <View style={[styles.shellClip as ViewStyle, { width: scaledOuterW, height: scaledOuterH }]}>
         <View style={[styles.phoneBezel as ViewStyle, frameShellStyle]}>
           <WebLayoutDimensionsProvider value={dims}>
             <View style={styles.screen as ViewStyle}>{children}</View>
