@@ -51,6 +51,7 @@ export default function RootLayout() {
           ? {
               flex: 1,
               width: '100%',
+              minHeight: '100vh' as unknown as number,
               overflow: 'hidden',
             }
           : { flex: 1 }
@@ -61,7 +62,11 @@ export default function RootLayout() {
           <ActiveGamesProvider>
             <LastScoreSheetProvider>
               <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-                <Stack screenOptions={{ animation: 'none' }}>
+                <Stack
+                  screenOptions={{
+                    animation: 'none',
+                    contentStyle: { flex: 1, backgroundColor: '#ffffff' },
+                  }}>
                   <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'none' }} />
                   <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
                   <Stack.Screen name="mexican-train" options={{ headerShown: false, animation: 'none' }} />

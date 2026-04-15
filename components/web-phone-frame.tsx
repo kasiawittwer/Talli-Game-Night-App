@@ -1,6 +1,6 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useLayoutEffect, useMemo, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { IPHONE_17_PRO_VIEWPORT } from '@/constants/iphone-17-pro';
 import { WebLayoutDimensionsProvider } from '@/context/web-layout-dimensions-context';
@@ -16,13 +16,11 @@ type WebPhoneFrameProps = {
 /**
  * On web only: centers the app in a fixed iPhone 17 Pro–sized viewport on a plain background.
  * Native builds are unchanged (children only).
+ *
+ * Important: use RN `View` only here — raw DOM `<div>` wrappers around RN subtrees can fail to
+ * paint children correctly in production (minified) React Native Web bundles.
  */
 export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
-  // Do not use `useWindowDimensions()` for layout math on static hosting (Vercel, etc.): it can
-  // stay 0 or update late, which makes scale 0 and hides the phone.
-  // Never start with the phone's logical size as the "window": that makes maxW < outerW on the first
-  // layout pass, so scale < 1 and we apply `zoom` on desktop until useLayoutEffect runs — fragile on Safari.
-  // Client: read window immediately. SSR/static shell: assume a large desktop so scale stays 1 until hydrate.
   const [viewport, setViewport] = useState<{ w: number; h: number }>(() => {
     if (typeof window === 'undefined') {
       return { w: 4096, h: 4096 };
@@ -57,8 +55,6 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
     const maxH = Math.max(0, winH - FRAME_PADDING * 2);
     let s = Math.min(1, maxW / oW, maxH / oH);
     if (!Number.isFinite(s) || s <= 0) s = 1;
-    // MacBook / iPad: viewport is almost always larger than the logical phone — use 1:1 layout (no zoom).
-    // Narrow mobile browsers: scale down; non-standard `zoom` is only needed in that case.
     const needsShrink = s < 0.999;
     return { outerW: oW, outerH: oH, scale: s, needsScaleDown: needsShrink };
   }, [viewport.w, viewport.h]);
@@ -72,64 +68,67 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
     height: IPHONE_17_PRO_VIEWPORT.height,
   };
 
-  // CSS transform:scale on an ancestor breaks horizontal pan scrolling inside the frame in Chromium/Safari.
-  // Non-standard `zoom` is only applied when the window is smaller than the shell (mobile browsers).
-  const pageStyle: CSSProperties = {
+  const frameShellStyle: ViewStyle = needsScaleDown
+    ? ({
+        width: outerW,
+        height: outerH,
+        borderRadius: OUTER_RADIUS,
+        // RN Web: non-standard CSS zoom for narrow viewports only.
+        zoom: scale,
+      } as ViewStyle)
+    : {
+        width: outerW,
+        height: outerH,
+        borderRadius: OUTER_RADIUS,
+      };
+
+  return (
+    <View style={[styles.page as ViewStyle, { minHeight: '100vh' as unknown as number }]}>
+      <View style={[styles.shellClip as ViewStyle, { width: outerW * scale, height: outerH * scale }]}>
+        <View style={[styles.phoneBezel as ViewStyle, frameShellStyle]}>
+          <WebLayoutDimensionsProvider value={dims}>
+            <View style={styles.screen as ViewStyle}>{children}</View>
+          </WebLayoutDimensionsProvider>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const W = IPHONE_17_PRO_VIEWPORT.width;
+const H = IPHONE_17_PRO_VIEWPORT.height;
+
+const styles = StyleSheet.create({
+  page: {
     width: '100%',
-    minHeight: '100vh',
-    height: '100dvh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flex: 1,
     overflow: 'hidden',
     backgroundColor: '#c8c8c8',
-    boxSizing: 'border-box',
-    padding: `${FRAME_PADDING}px`,
-  };
-
-  const shellViewportStyle: CSSProperties = {
-    width: outerW * scale,
-    height: outerH * scale,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: FRAME_PADDING,
+  },
+  shellClip: {
     overflow: 'hidden',
     flexShrink: 0,
-    // RN Navigation / screens often use `position: fixed` on web. Fixed elements ignore a parent’s
-    // overflow:hidden unless an ancestor creates a containing block. Without this, production builds
-    // can paint the navigator full-viewport (hiding the bezel); dev may still “look fine”.
     position: 'relative',
-    transform: 'translateZ(0)',
-  };
-
-  const bezelStyle: CSSProperties = {
-    width: outerW,
-    height: outerH,
-    borderRadius: OUTER_RADIUS,
+    // Containing block for any `position: fixed` descendants from navigation on web.
+    transform: [{ scale: 1 }],
+  },
+  phoneBezel: {
     backgroundColor: '#1a1a1a',
     padding: BEZEL,
     overflow: 'hidden',
-    boxSizing: 'border-box',
     position: 'relative',
-    ...(needsScaleDown ? { zoom: scale } : {}),
-  };
-
-  const screenStyle: CSSProperties = {
-    width: IPHONE_17_PRO_VIEWPORT.width,
-    height: IPHONE_17_PRO_VIEWPORT.height,
+  },
+  screen: {
+    flex: 1,
+    width: W,
+    height: H,
     overflow: 'hidden',
     borderRadius: OUTER_RADIUS - BEZEL,
     backgroundColor: '#000',
     position: 'relative',
-    transform: 'translateZ(0)',
-  };
-
-  return (
-    <div style={pageStyle}>
-      <div style={shellViewportStyle}>
-        <div style={bezelStyle}>
-          <WebLayoutDimensionsProvider value={dims}>
-            <div style={screenStyle}>{children}</div>
-          </WebLayoutDimensionsProvider>
-        </div>
-      </div>
-    </div>
-  );
-}
+    transform: [{ scale: 1 }],
+  },
+});
