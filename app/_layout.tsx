@@ -48,7 +48,12 @@ export default function RootLayout() {
     <GestureHandlerRootView
       style={
         Platform.OS === 'web'
-          ? { flex: 1, height: '100%', minHeight: 0, overflow: 'hidden' }
+          ? {
+              flex: 1,
+              width: '100%',
+              minHeight: '100vh' as unknown as number,
+              overflow: 'hidden',
+            }
           : { flex: 1 }
       }>
       <WebNoFocusRing />
