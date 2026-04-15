@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useLayoutEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform } from 'react-native';
 
 import { IPHONE_17_PRO_VIEWPORT } from '@/constants/iphone-17-pro';
 import { WebLayoutDimensionsProvider } from '@/context/web-layout-dimensions-context';
@@ -74,56 +74,54 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
 
   // CSS transform:scale on an ancestor breaks horizontal pan scrolling inside the frame in Chromium/Safari.
   // Non-standard `zoom` is only applied when the window is smaller than the shell (mobile browsers).
-  const frameShellStyle = needsScaleDown
-    ? ({
-        width: outerW,
-        height: outerH,
-        borderRadius: OUTER_RADIUS,
-        zoom: scale,
-      } as const)
-    : ({
-        width: outerW,
-        height: outerH,
-        borderRadius: OUTER_RADIUS,
-      } as const);
-
-  return (
-    <View style={styles.page} className="web-phone-frame-page">
-      <View style={{ width: outerW * scale, height: outerH * scale, overflow: 'hidden' }}>
-        <View style={[styles.phoneBezel, frameShellStyle]}>
-          <WebLayoutDimensionsProvider value={dims}>
-            <View style={styles.screen}>{children}</View>
-          </WebLayoutDimensionsProvider>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-const W = IPHONE_17_PRO_VIEWPORT.width;
-const H = IPHONE_17_PRO_VIEWPORT.height;
-
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
+  const pageStyle: CSSProperties = {
     width: '100%',
-    minHeight: 0,
-    overflow: 'hidden',
-    backgroundColor: '#c8c8c8',
+    minHeight: '100vh',
+    height: '100dvh',
+    display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  phoneBezel: {
+    overflow: 'hidden',
+    backgroundColor: '#c8c8c8',
+    boxSizing: 'border-box',
+    padding: `${FRAME_PADDING}px`,
+  };
+
+  const shellViewportStyle: CSSProperties = {
+    width: outerW * scale,
+    height: outerH * scale,
+    overflow: 'hidden',
+    flexShrink: 0,
+  };
+
+  const bezelStyle: CSSProperties = {
+    width: outerW,
+    height: outerH,
+    borderRadius: OUTER_RADIUS,
     backgroundColor: '#1a1a1a',
     padding: BEZEL,
     overflow: 'hidden',
-  },
-  screen: {
-    flex: 1,
-    width: W,
-    height: H,
+    boxSizing: 'border-box',
+    ...(needsScaleDown ? { zoom: scale } : {}),
+  };
+
+  const screenStyle: CSSProperties = {
+    width: IPHONE_17_PRO_VIEWPORT.width,
+    height: IPHONE_17_PRO_VIEWPORT.height,
     overflow: 'hidden',
     borderRadius: OUTER_RADIUS - BEZEL,
     backgroundColor: '#000',
-  },
-});
+  };
+
+  return (
+    <div style={pageStyle}>
+      <div style={shellViewportStyle}>
+        <div style={bezelStyle}>
+          <WebLayoutDimensionsProvider value={dims}>
+            <div style={screenStyle}>{children}</div>
+          </WebLayoutDimensionsProvider>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -25,35 +25,6 @@ body {
   flex-direction: column;
 }
 
-/**
- * Web shell layout: applied via className on RN Web Views so flex/% quirks cannot collapse height.
- * (GestureHandlerRootView forwards `className` to the underlying div.)
- */
-.web-app-root {
-  flex: 1 1 auto;
-  width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-.web-phone-frame-page {
-  flex: 1 1 auto;
-  width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background-color: #c8c8c8;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
 /* HorizontalPager viewport (RN Web): data attr survives RN style merge. */
 [data-rn-pager-viewport='1'] {
   overflow: hidden !important;

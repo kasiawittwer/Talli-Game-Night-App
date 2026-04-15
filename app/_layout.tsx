@@ -46,7 +46,6 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView
-      {...(Platform.OS === 'web' ? { className: 'web-app-root' } : {})}
       style={
         Platform.OS === 'web'
           ? {
