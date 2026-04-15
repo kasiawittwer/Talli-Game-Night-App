@@ -5,10 +5,14 @@ import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { IPHONE_17_PRO_VIEWPORT } from '@/constants/iphone-17-pro';
 import { WebLayoutDimensionsProvider } from '@/context/web-layout-dimensions-context';
 
-const FRAME_PADDING = 24;
+/** Horizontal inset from the browser edge. */
+const FRAME_PADDING_X = 24;
+/** Vertical inset so gray background stays visible above/below the shell. */
+const FRAME_PADDING_Y = 150;
 const OUTER_RADIUS = 55;
 const BEZEL = 10;
-const VISUAL_SHRINK_BUFFER = 0.96;
+/** Extra shrink so scale math matches painted bounds (no transform/layout mismatch). */
+const VISUAL_SHRINK_BUFFER = 0.98;
 
 /** Outer shell size (logical px): phone inset + bezel padding on both sides. */
 const OUTER_SHELL_W = IPHONE_17_PRO_VIEWPORT.width + BEZEL * 2;
@@ -24,6 +28,7 @@ type WebPhoneFrameProps = {
  *
  * Uses `position: 'fixed'` + explicit pixel sizes in StyleSheet so static export / SSR never
  * produces a 0×0 clip or stray `zoom` from flex parents. Do not use CSS `zoom` here.
+ * Fit-to-viewport uses scaled width/height (not CSS `transform: scale`) so layout matches paint.
  */
 export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
   if (Platform.OS !== 'web') {
@@ -54,8 +59,8 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
   }, []);
 
   const shellScale = useMemo(() => {
-    const maxW = Math.max(1, viewport.w - FRAME_PADDING * 2);
-    const maxH = Math.max(1, viewport.h - FRAME_PADDING * 2);
+    const maxW = Math.max(1, viewport.w - FRAME_PADDING_X * 2);
+    const maxH = Math.max(1, viewport.h - FRAME_PADDING_Y * 2);
     const raw = Math.min(1, maxW / OUTER_SHELL_W, maxH / OUTER_SHELL_H);
     if (!Number.isFinite(raw) || raw <= 0) return 1;
     // Keep a little breathing room so bezel corners never clip at viewport edges.
@@ -67,16 +72,42 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
     height: IPHONE_17_PRO_VIEWPORT.height,
   };
 
+  // Scale by explicit width/height — not `transform: scale()`. On web, transforms do not shrink
+  // the layout box, so a smaller clip + centered full-size child was clipping the shell.
+  const s = shellScale;
+  const outerW = OUTER_SHELL_W * s;
+  const outerH = OUTER_SHELL_H * s;
+  const bezel = BEZEL * s;
+  const screenW = IPHONE_17_PRO_VIEWPORT.width * s;
+  const screenH = IPHONE_17_PRO_VIEWPORT.height * s;
+  const radiusOuter = OUTER_RADIUS * s;
+  const radiusScreen = (OUTER_RADIUS - BEZEL) * s;
+
   return (
     <View style={styles.page as ViewStyle}>
-      <View
-        style={[
-          styles.shellClip as ViewStyle,
-          { width: OUTER_SHELL_W * shellScale, height: OUTER_SHELL_H * shellScale },
-        ]}>
-        <View style={[styles.phoneBezel as ViewStyle, { transform: [{ scale: shellScale }] }]}>
+      <View style={[styles.shellClip as ViewStyle, { width: outerW, height: outerH }]}>
+        <View
+          style={[
+            styles.phoneBezel as ViewStyle,
+            {
+              width: outerW,
+              height: outerH,
+              padding: bezel,
+              borderRadius: radiusOuter,
+            },
+          ]}>
           <WebLayoutDimensionsProvider value={dims}>
-            <View style={styles.screen as ViewStyle}>{children}</View>
+            <View
+              style={[
+                styles.screen as ViewStyle,
+                {
+                  width: screenW,
+                  height: screenH,
+                  borderRadius: radiusScreen,
+                },
+              ]}>
+              {children}
+            </View>
           </WebLayoutDimensionsProvider>
         </View>
       </View>
@@ -97,30 +128,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#c8c8c8',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: FRAME_PADDING,
+    paddingHorizontal: FRAME_PADDING_X,
+    paddingVertical: FRAME_PADDING_Y,
     zIndex: 0,
   },
   shellClip: {
-    width: OUTER_SHELL_W,
-    height: OUTER_SHELL_H,
     overflow: 'hidden',
     flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   phoneBezel: {
-    width: OUTER_SHELL_W,
-    height: OUTER_SHELL_H,
-    borderRadius: OUTER_RADIUS,
     backgroundColor: '#1a1a1a',
-    padding: BEZEL,
     overflow: 'hidden',
   },
   screen: {
-    width: IPHONE_17_PRO_VIEWPORT.width,
-    height: IPHONE_17_PRO_VIEWPORT.height,
     overflow: 'hidden',
-    borderRadius: OUTER_RADIUS - BEZEL,
     backgroundColor: '#000',
   },
 });
