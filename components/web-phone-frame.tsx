@@ -92,6 +92,11 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
     height: outerH * scale,
     overflow: 'hidden',
     flexShrink: 0,
+    // RN Navigation / screens often use `position: fixed` on web. Fixed elements ignore a parent’s
+    // overflow:hidden unless an ancestor creates a containing block. Without this, production builds
+    // can paint the navigator full-viewport (hiding the bezel); dev may still “look fine”.
+    position: 'relative',
+    transform: 'translateZ(0)',
   };
 
   const bezelStyle: CSSProperties = {
@@ -102,6 +107,7 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
     padding: BEZEL,
     overflow: 'hidden',
     boxSizing: 'border-box',
+    position: 'relative',
     ...(needsScaleDown ? { zoom: scale } : {}),
   };
 
@@ -111,6 +117,8 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
     overflow: 'hidden',
     borderRadius: OUTER_RADIUS - BEZEL,
     backgroundColor: '#000',
+    position: 'relative',
+    transform: 'translateZ(0)',
   };
 
   return (
