@@ -8,6 +8,7 @@ import { WebLayoutDimensionsProvider } from '@/context/web-layout-dimensions-con
 const FRAME_PADDING = 24;
 const OUTER_RADIUS = 55;
 const BEZEL = 10;
+const VISUAL_SHRINK_BUFFER = 0.96;
 
 /** Outer shell size (logical px): phone inset + bezel padding on both sides. */
 const OUTER_SHELL_W = IPHONE_17_PRO_VIEWPORT.width + BEZEL * 2;
@@ -57,7 +58,8 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
     const maxH = Math.max(1, viewport.h - FRAME_PADDING * 2);
     const raw = Math.min(1, maxW / OUTER_SHELL_W, maxH / OUTER_SHELL_H);
     if (!Number.isFinite(raw) || raw <= 0) return 1;
-    return raw;
+    // Keep a little breathing room so bezel corners never clip at viewport edges.
+    return raw * VISUAL_SHRINK_BUFFER;
   }, [viewport.h, viewport.w]);
 
   const dims = {
