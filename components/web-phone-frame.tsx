@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { IPHONE_17_PRO_VIEWPORT } from '@/constants/iphone-17-pro';
@@ -28,6 +29,37 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
     return <>{children}</>;
   }
 
+  const [viewport, setViewport] = useState<{ w: number; h: number }>(() => {
+    if (typeof window === 'undefined') {
+      return { w: 1400, h: 900 };
+    }
+    return {
+      w: Math.max(1, window.innerWidth),
+      h: Math.max(1, window.innerHeight),
+    };
+  });
+
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return;
+    const sync = () => {
+      setViewport({
+        w: Math.max(1, window.innerWidth),
+        h: Math.max(1, window.innerHeight),
+      });
+    };
+    sync();
+    window.addEventListener('resize', sync);
+    return () => window.removeEventListener('resize', sync);
+  }, []);
+
+  const shellScale = useMemo(() => {
+    const maxW = Math.max(1, viewport.w - FRAME_PADDING * 2);
+    const maxH = Math.max(1, viewport.h - FRAME_PADDING * 2);
+    const raw = Math.min(1, maxW / OUTER_SHELL_W, maxH / OUTER_SHELL_H);
+    if (!Number.isFinite(raw) || raw <= 0) return 1;
+    return raw;
+  }, [viewport.h, viewport.w]);
+
   const dims = {
     width: IPHONE_17_PRO_VIEWPORT.width,
     height: IPHONE_17_PRO_VIEWPORT.height,
@@ -35,8 +67,12 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
 
   return (
     <View style={styles.page as ViewStyle}>
-      <View style={styles.shellClip as ViewStyle}>
-        <View style={styles.phoneBezel as ViewStyle}>
+      <View
+        style={[
+          styles.shellClip as ViewStyle,
+          { width: OUTER_SHELL_W * shellScale, height: OUTER_SHELL_H * shellScale },
+        ]}>
+        <View style={[styles.phoneBezel as ViewStyle, { transform: [{ scale: shellScale }] }]}>
           <WebLayoutDimensionsProvider value={dims}>
             <View style={styles.screen as ViewStyle}>{children}</View>
           </WebLayoutDimensionsProvider>
@@ -67,6 +103,8 @@ const styles = StyleSheet.create({
     height: OUTER_SHELL_H,
     overflow: 'hidden',
     flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   phoneBezel: {
     width: OUTER_SHELL_W,
