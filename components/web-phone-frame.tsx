@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { useLayoutEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { IPHONE_17_PRO_VIEWPORT } from '@/constants/iphone-17-pro';
@@ -21,75 +20,29 @@ type WebPhoneFrameProps = {
  * paint children correctly in production (minified) React Native Web bundles.
  */
 export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
-  const [viewport, setViewport] = useState<{ w: number; h: number }>(() => {
-    if (typeof window === 'undefined') {
-      return { w: 4096, h: 4096 };
-    }
-    return {
-      w: Math.max(1, window.innerWidth),
-      h: Math.max(1, window.innerHeight),
-    };
-  });
-
-  useLayoutEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    const sync = () => {
-      setViewport({
-        w: Math.max(1, window.innerWidth),
-        h: Math.max(1, window.innerHeight),
-      });
-    };
-    sync();
-    window.addEventListener('resize', sync);
-    return () => window.removeEventListener('resize', sync);
-  }, []);
-
-  const { outerW, outerH, scale, needsScaleDown } = useMemo(() => {
-    const W = IPHONE_17_PRO_VIEWPORT.width;
-    const H = IPHONE_17_PRO_VIEWPORT.height;
-    const oW = W + BEZEL * 2;
-    const oH = H + BEZEL * 2;
-    const winW = viewport.w;
-    const winH = viewport.h;
-    const maxW = Math.max(0, winW - FRAME_PADDING * 2);
-    const maxH = Math.max(0, winH - FRAME_PADDING * 2);
-    let s = Math.min(1, maxW / oW, maxH / oH);
-    // Production static exports can transiently report a 0x0 viewport. Never allow a collapsed shell.
-    if (!Number.isFinite(s) || s <= 0.01) s = 1;
-    const needsShrink = s < 0.999;
-    return { outerW: oW, outerH: oH, scale: s, needsScaleDown: needsShrink };
-  }, [viewport.w, viewport.h]);
-
   if (Platform.OS !== 'web') {
     return <>{children}</>;
   }
+
+  const W = IPHONE_17_PRO_VIEWPORT.width;
+  const H = IPHONE_17_PRO_VIEWPORT.height;
+  const outerW = W + BEZEL * 2;
+  const outerH = H + BEZEL * 2;
 
   const dims = {
     width: IPHONE_17_PRO_VIEWPORT.width,
     height: IPHONE_17_PRO_VIEWPORT.height,
   };
 
-  const safeScale = Number.isFinite(scale) && scale > 0.01 ? scale : 1;
-  const scaledOuterW = Math.max(1, outerW * safeScale);
-  const scaledOuterH = Math.max(1, outerH * safeScale);
-
-  const frameShellStyle: ViewStyle = needsScaleDown
-    ? ({
-        width: outerW,
-        height: outerH,
-        borderRadius: OUTER_RADIUS,
-        // RN Web: non-standard CSS zoom for narrow viewports only.
-        zoom: safeScale,
-      } as ViewStyle)
-    : {
-        width: outerW,
-        height: outerH,
-        borderRadius: OUTER_RADIUS,
-      };
+  const frameShellStyle: ViewStyle = {
+    width: outerW,
+    height: outerH,
+    borderRadius: OUTER_RADIUS,
+  };
 
   return (
     <View style={[styles.page as ViewStyle, { minHeight: '100vh' as unknown as number }]}>
-      <View style={[styles.shellClip as ViewStyle, { width: scaledOuterW, height: scaledOuterH }]}>
+      <View style={[styles.shellClip as ViewStyle, { width: outerW, height: outerH }]}>
         <View style={[styles.phoneBezel as ViewStyle, frameShellStyle]}>
           <WebLayoutDimensionsProvider value={dims}>
             <View style={styles.screen as ViewStyle}>{children}</View>
@@ -99,9 +52,6 @@ export function WebPhoneFrame({ children }: WebPhoneFrameProps) {
     </View>
   );
 }
-
-const W = IPHONE_17_PRO_VIEWPORT.width;
-const H = IPHONE_17_PRO_VIEWPORT.height;
 
 const styles = StyleSheet.create({
   page: {
@@ -128,8 +78,8 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
-    width: W,
-    height: H,
+    width: IPHONE_17_PRO_VIEWPORT.width,
+    height: IPHONE_17_PRO_VIEWPORT.height,
     overflow: 'hidden',
     borderRadius: OUTER_RADIUS - BEZEL,
     backgroundColor: '#000',
