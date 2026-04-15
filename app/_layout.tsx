@@ -46,12 +46,12 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView
+      {...(Platform.OS === 'web' ? { className: 'web-app-root' } : {})}
       style={
         Platform.OS === 'web'
           ? {
               flex: 1,
               width: '100%',
-              minHeight: '100vh' as unknown as number,
               overflow: 'hidden',
             }
           : { flex: 1 }
