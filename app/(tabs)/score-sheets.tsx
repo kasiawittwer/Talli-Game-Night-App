@@ -19,6 +19,39 @@ type ScoreSheet = {
   route: string;
 };
 
+function isSingleWord(name: string): boolean {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return parts.length === 1;
+}
+
+function ScoreCardTitle({ name, isTablet }: { name: string; isTablet: boolean }) {
+  const single = isSingleWord(name);
+  return (
+    <Text
+      style={[styles.cardTitle, isTablet && styles.cardTitleTablet]}
+      numberOfLines={single ? 1 : 2}
+      adjustsFontSizeToFit={single}
+      minimumFontScale={single ? 0.68 : 1}
+    >
+      {name}
+    </Text>
+  );
+}
+
+function ScorePreviewTitle({ name, isTablet }: { name: string; isTablet: boolean }) {
+  const single = isSingleWord(name);
+  return (
+    <Text
+      style={[styles.previewTitleSmall, isTablet && styles.previewTitleSmallTablet]}
+      numberOfLines={single ? 1 : 2}
+      adjustsFontSizeToFit={single}
+      minimumFontScale={single ? 0.55 : 1}
+    >
+      {name}
+    </Text>
+  );
+}
+
 const PREMADE_SHEETS: ScoreSheet[] = [
   { id: '1', name: 'Mexican Train', color: Colors.light.accent, route: '/mexican-train' },
   { id: '2', name: 'Yahtzee', color: Colors.light.primary, route: '/yahtzee' },
@@ -140,12 +173,10 @@ export default function ScoreSheetsScreen() {
                   )}
 
                   <Pressable onPress={() => router.push(game.route as any)} style={{ flex: 1 }}>
-                    <Text style={[styles.cardTitle, isTablet && styles.cardTitleTablet]}>{game.name}</Text>
+                    <ScoreCardTitle name={game.name} isTablet={isTablet} />
                     <View style={[styles.cardPreview, isTablet && styles.cardPreviewTablet]}>
                       <View style={styles.previewHeader}>
-                        <Text style={[styles.previewTitleSmall, isTablet && styles.previewTitleSmallTablet]}>
-                          {game.name}
-                        </Text>
+                        <ScorePreviewTitle name={game.name} isTablet={isTablet} />
                       </View>
                       <View
                         style={[
@@ -180,12 +211,10 @@ export default function ScoreSheetsScreen() {
                   style={[styles.scoreCard, isTablet && styles.scoreCardTablet]}
                   onPress={() => handleFavoritePress(sheet.route)}
                 >
-                  <Text style={[styles.cardTitle, isTablet && styles.cardTitleTablet]}>{sheet.name}</Text>
+                  <ScoreCardTitle name={sheet.name} isTablet={isTablet} />
                   <View style={[styles.cardPreview, isTablet && styles.cardPreviewTablet]}>
                     <View style={styles.previewHeader}>
-                      <Text style={[styles.previewTitleSmall, isTablet && styles.previewTitleSmallTablet]}>
-                        {sheet.name}
-                      </Text>
+                      <ScorePreviewTitle name={sheet.name} isTablet={isTablet} />
                     </View>
                     <View
                       style={[
@@ -230,12 +259,10 @@ export default function ScoreSheetsScreen() {
               )}
 
               <Pressable onPress={() => router.push(sheet.route as any)} style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, isTablet && styles.cardTitleTablet]}>{sheet.name}</Text>
+                <ScoreCardTitle name={sheet.name} isTablet={isTablet} />
                 <View style={[styles.cardPreview, isTablet && styles.cardPreviewTablet]}>
                   <View style={styles.previewHeader}>
-                    <Text style={[styles.previewTitleSmall, isTablet && styles.previewTitleSmallTablet]}>
-                      {sheet.name}
-                    </Text>
+                    <ScorePreviewTitle name={sheet.name} isTablet={isTablet} />
                   </View>
                   <View
                     style={[
@@ -323,12 +350,13 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontFamily: Fonts.body,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '400',
     color: Colors.dark.background,
     marginBottom: 6,
+    textAlign: 'center',
   },
   cardTitleTablet: {
-    fontSize: 14,
+    fontSize: 12,
   },
   cardPreview: {
     backgroundColor: '#FAFAFA',
@@ -359,15 +387,17 @@ const styles = StyleSheet.create({
   },
   previewHeader: {
     marginBottom: 4,
+    width: '100%',
   },
   previewTitleSmall: {
     fontSize: 6,
     fontFamily: Fonts.body,
+    fontWeight: '400',
     color: Colors.dark.background,
     textAlign: 'center',
   },
   previewTitleSmallTablet: {
-    fontSize: 8,
+    fontSize: 7,
   },
   previewColorBar: {
     flexDirection: 'row',
